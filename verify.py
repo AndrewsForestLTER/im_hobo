@@ -13,8 +13,6 @@ class CampbellData:
 
     def __init__(self):
         """
-
-        :return:
         """
         self.header = []
         self.data = pd.DataFrame()
@@ -38,10 +36,9 @@ class CampbellData:
 
     def read_header(self, file_name, n_lines=4):
         """
-
-        :param file_name:
-        :param n_lines:
-        :return:
+        Read the header lines from the beginning of a file. Reads n_lines, and stores them as headers info.
+        :param file_name: str. File path of file to be read.
+        :param n_lines: keyword argument. Number of lines in header. i.e. number of lines to read. Default to 4 (toa5)
         """
         f = open(file_name)
         header = [f.next() for l in range(0, n_lines)]
@@ -51,55 +48,69 @@ class CampbellData:
 
     def _get_header_line(self, header, lineno):
         """
-
-        :param header:
-        :param lineno:
-        :return:
+        Private function. Breaks header line into individual comma delimited parts and strips white space, and double
+        quotation marks.
+        :param header: array of header lines where each line is a single string.
+        :param lineno: int. Index of line number to be parsed
+        :return: array of header components from lineno.
         """
         line = [s.strip('"') for s in header[lineno].strip().split(',')]
         return line
 
+    def get_cr10_col(self, header):
+        """
+        Extract column names for CR10 data array
+        :param header: array of header lines where each line is a single string.
+        :return: array of column names
+
+        .. Note::
+            A CR10 data array may contain multiple table id's, each with unique columns. Only one table id is handled
+            at a time.
+        """
+        col = self._get_header_line(header, 0)
+        return col
+
     def get_toa5_col(self, header):
         """
-
-        :param header:
-        :return:
+        Extract column names from toa5 header format.
+        :param header: array of header lines where each line is a single string.
+        :return: array of column names.
         """
         col = self._get_header_line(header, 1)
         return col
 
     def get_toa5_units(self, header):
         """
-
-        :param header:
-        :return:
+        Extract unit definitions from toa5 header format.
+        :param header: array of header lines where each line is a single string.
+        :return: array of unit definitions
         """
         units = self._get_header_line(header, 2)
         return units
 
     def get_toa5_collection_method(self, header):
         """
-
-        :param header:
-        :return:
+        Extract collection methods from toa5 header format.
+        :param header: array of header lines where each line is a single string.
+        :return: array of method definitions.
         """
         meth = self._get_header_line(header, 3)
         return meth
 
     def get_toa5_prog(self, header):
         """
-
-        :param header:
-        :return:
+        Extract the name of the program that generated the datafile from the toa5 header format.
+        :param header: array of header lines where each line is a single string.
+        :return: str. Program name.
         """
 
         return header[0].split(',')[5].strip('"')
 
     def get_toa5_os(self, header):
         """
-
-        :param header:
-        :return:
+        Extract the OS version from the toa5 header format.
+        :param header: array of header lines where each line is a single string.
+        :return: str. OS number.
         """
         return header[0].split(',')[4].strip('"')
 
@@ -120,6 +131,45 @@ class CampbellData:
         """
         return header[0].split(',')[2]
 
+    def get_cr10_to_HHMM(self, col):
+        """
+        Convert time format from CR10 to HHMM.
+
+        .. Example::
+            CR10 Time
+            2345
+            2400
+            15
+            30
+            45
+            100
+
+            converted to
+
+            2345
+            0000
+            0015
+            0030
+            0045
+            0100
+
+        :param col: Pandas data Series containing CR10 time values
+        :return: array of time as str.
+        """
+        four_digit_format = []
+        for t in col:
+            len = t.astype(str).__len__()
+            HHMM = t.astype(str)
+            while len<4:
+                HHMM = '0' + HHMM
+                len = HHMM.__len__()
+
+            HHMM = '0000' if t == 2400 else HHMM
+            four_digit_format.append(HHMM)
+
+        return four_digit_format
+
+
     def load_csv_data(self, fname, col, skip_nrows=4):
         """
 
@@ -127,17 +177,39 @@ class CampbellData:
         :param skip_nrows:
         :return:
         """
-        self.data = pd.read_csv(fname, skiprows=4, names=col, parse_dates=True, index_col=0)
+        self.data = pd.read_csv(fname, skiprows=skip_nrows, names=col, parse_dates=True, index_col=0)
 
     def load_toa5_data(self, fname):
         """
-
-        :param fname:
-        :return:
+        Load toa5 datafile into a Pandas DataFrame
+        :param fname: str. Filepath of toa5 data file
         """
         self.read_header(fname)
         col = self.get_toa5_col(self.header)
         self.load_csv_data(fname, col)
+
+    def load_cr10_array(self, fname, header_file, tbl_id=115):
+        """
+        Load array from  CR10 data logger.
+        :param fname: str. Filepath of cr10 data array.
+        :param header_file: str. Filepath to cr10 header file.
+        :param tbl_id: int. Identifier of desired table array.
+
+        .. Note::
+            self.load_csv_data automatically creates a Pandas DataFrame with table/array ID as the index. This is used
+            to take a slice with only the desired table.
+        """
+        self.read_header(header_file, 1)
+        col = self.get_cr10_col(self.header)
+        self.load_csv_data(fname, col, skip_nrows=0)
+
+        # slice only the desired table/array ID
+        data = self.data.ix[tbl_id]
+
+        # convert Julian Day, Year, and 24 hour time into a time stamp and set as index
+        time = self.get_cr10_to_HHMM(data['Time'])
+        ts = pd.to_datetime(data.Year.astype(str) + ' ' + data.JulianDay.astype(str) + ' ' + time, format='%Y %j %H%M')
+        self.data = data.set_index(ts)
 
 class HOBOdata:
     """
@@ -361,7 +433,7 @@ class OffsetTriggerTs:
         df_offset = self.df_offset
 
         self._reset_value(pump_off, 'SA_RUN_TIME', offset)
-        self._reset_value(pump_off, 'PUMP_ON', -1)
+        self._reset_value(pump_off, 'PUMP_ON', 1)
         self._reset_value(pump_off, 'SA_OFF_TIME', 0)
 
     def _reset_value(self, loc, col, value):
@@ -568,6 +640,7 @@ class CompareData:
         dat.load_toa5_data(filename)
 
         self.data = dat.data
+        self.filename = filename
 
     def get_data_lim(self, data, buffer=0.1):
         """
@@ -612,33 +685,43 @@ class CompareData:
     def plot_compare_sensors(self, columns, units):
 
         data = self.data[columns]
+        diffs = self.get_diff_sensors(columns)
 
-        ax1 = plt.subplot(2,1,1)
+        ax1 = plt.subplot(3,1,1)
         x = columns[0]
         y = columns[1:]
-        lines = plt.plot(data[x], data[y], '.')
-        plt.legend(lines, columns[1:])
+        lines1 = plt.plot(data[x], data[y], '.')
+        plt.legend(lines1, columns[1:])
 
         plt.xlabel(x)
         plt.ylabel(units)
         plt.grid('on')
-        plt.hold('on')
 
         low, high = self.get_data_lim(data)
         plt.plot([low, high], [low, high], '-k')
 
-        ax2 = plt.subplot(2,1,2)
-        diffs = self.get_diff_sensors(columns)
-        plt.plot(data[x], diffs, '.')
+        ax2 = plt.subplot(3, 1, 2)
+        lines2 = plt.plot(data[x], diffs, '.')
 
         plt.xlabel(x)
-        plt.ylabel(units)
+        plt.ylabel('Diff in' + units)
         plt.grid('on')
-        plt.hold('on')
+        plt.legend(lines2, columns[1:])
 
         plt.plot([low, high], [0, 0], '-k')
 
+        ax3 = plt.subplot(3, 1, 3)
+        lines3 = plt.plot(diffs, '-')
 
+        plt.xlabel('Date')
+        plt.ylabel('Diff in' + units)
+        plt.grid('on')
+        plt.legend(lines3, columns[1:])
+
+        plt.plot([diffs.index[0], diffs.index[-1]], [0, 0], '-k')
+
+        plt_title = self.filename.split('\\')[-1]
+        plt.suptitle(plt_title)
 
 if __name__ == "__main__":
     my_path = "c:/workspace/"
