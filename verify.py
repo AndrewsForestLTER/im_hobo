@@ -135,6 +135,9 @@ class CampbellData:
         """
         Convert time format from CR10 to HHMM.
 
+        :param col: Pandas data Series containing CR10 time values
+        :return: array of time as str.
+
         .. Example::
             CR10 Time
             2345
@@ -153,11 +156,10 @@ class CampbellData:
             0045
             0100
 
-        :param col: Pandas data Series containing CR10 time values
-        :return: array of time as str.
         """
         four_digit_format = []
         for t in col:
+
             len = t.astype(str).__len__()
             HHMM = t.astype(str)
             while len<4:
@@ -197,7 +199,15 @@ class CampbellData:
 
         .. Note::
             self.load_csv_data automatically creates a Pandas DataFrame with table/array ID as the index. This is used
-            to take a slice with only the desired table.
+            to take a slice with only the desired table. To access the raw array for multiple slicing, use
+            self.load_csv_data
+
+        .. Warning::
+            This was designed on Pandas version 0.17.0. Older versions of Pandas may parse the table id as a random date
+            This will prevent this method from querying the correct table and will create an invalid date index. To
+            upgrade, open a terminal and type:
+
+            pip install --upgrade pandas
         """
         self.read_header(header_file, 1)
         col = self.get_cr10_col(self.header)
@@ -221,15 +231,71 @@ class HOBOdata:
         :return:
         """
 
-class MergeHoboToa5:
-    """
 
+class MergeData:
+    """
+    Aggregator class to collect multiple datasets and  merge them together.
     """
     def __init__(self):
         """
+        Initialize aggregator class
+        """
+        self.df = pd.DataFrame()
 
+    def add_toa5_data(self, filename):
+        """
+        Add a toa5 dataset to the master dataset.
+        :param filename: filepath to the toa5 dataset
+
+        Preforms an outer merge (union) of datasets based on DateTimeIndex.
+        """
+        csi = CampbellData()
+        csi.load_toa5_data(filename)
+
+        df = self.merge_data(self.df, csi.data)
+        self.df = df
+
+    def add_cr10_data(self, filename, headerfile, tbl_id):
+        """
+        Add a cr10 data array to the master dataset
+        :param filename: filepath to cr10 table array
+        :param headerfile: str. Filepath to cr10 header file.
+        :param tbl_id: int. Identifier of desired table array.
+
+        Preforms an outer merge (union) of datasets based on DateTimeIndex.
+        """
+        csi = CampbellData()
+        csi.load_cr10_array(filename, headerfile, tbl_id)
+
+        df = self.merge_data(self.df, csi.data)
+        self.df = df
+
+    def merge_data(self, data1, data2):
+        """
+
+        :param data:
         :return:
         """
+        if not self.is_columns_common(data1.columns, data2.columns):
+            df = data1.join(data2, how='outer')
+        elif self.is_columns_common(data1.columns, data2.columns):
+            df = pd.concat([data1, data2], join='outer', ignore_index=False)
+
+        return df
+
+    def is_columns_common(self, columns1, columns2):
+        """
+
+        :param columns:
+        :return:
+        """
+        for c in columns1:
+            if any(c == columns2):
+                return True
+
+        return False
+
+
 class ReIndexByTimeCols:
     """
     Data where Max or Min values are logged with a time stamp can be reindexed from multiple timestamp data comlumns.
@@ -724,12 +790,14 @@ class CompareData:
         plt.suptitle(plt_title)
 
 if __name__ == "__main__":
-    my_path = "c:/workspace/"
+    my_path = "c:/workspace/CLIM\\"
+    # \\RefStnd\\"
     # "E:\DATA\METDAT\CENMET/"
     #
     # 'E:\workspace\pump_controls\\verrification'
     # #\\TOA5_UPLO_235_CONT_20160229.dat'    #'C:\Users\gcohn\Google Drive\work\pump_controls\\TOA5_UPLO_235_CONT_20160229.dat'
-    filename = my_path + "RS02\\2016\\090\\RS02_090_2016_109.dat"
+    filename = my_path + "CLIM_2016_040.DAT"
+    # "RS02\\2016\\090\\RS02_090_2016_109.dat"
     # "CENT_233_Table105_20160217"
     #
     # '\\update_Mar\\CENT_CONT_Final.dat'
@@ -790,13 +858,23 @@ if __name__ == "__main__":
     """
 
     # Test new Trigger call
-    trig = PumpOperations(filename)
-    trig.check_values()
+    # trig = PumpOperations(filename)
+    # trig.check_values()
 
     # Test Time Series Offset
     # off = OffsetTriggerTs(trig.cont)
     # off.offset_dataframe()
     # off.concat_trig_to_offset()
 
-    trig.offset_trigger_ts()
-    trig.graph_controls(trig.cont_offset)
+    # trig.offset_trigger_ts()
+    # trig.graph_controls(trig.cont_offset)
+    
+    
+    meta = "c:/workspace/CLIM\CLIM_115_header.txt"
+    df = CampbellData()
+    df.load_cr10_array(filename, meta)
+
+    test = MergeData()
+    test.add_toa5_data("c:/workspace/CLIM_113\\2016\CLIM_113_2016_060_Table105.dat")
+    test.add_cr10_data("c:/workspace/CLIM\CLIM_2016_040.DAT", meta,115)
+    test.add_cr10_data("c:/workspace/CLIM\CLIM_2016_090.DAT", meta,115)
