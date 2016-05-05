@@ -139,28 +139,32 @@ class CampbellData:
 
         :param col: Pandas data Series containing CR10 time values
         :return: array of time as str.
+        :return: array of julian day as str
 
         .. Example::
-            CR10 Time
-            2345
-            2400
-            15
-            30
-            45
-            100
+            CR10 Time   Julian Day
+            2345        9
+            2400        9
+            15          10
+            30          10
+            45          10
+            100         10
 
             converted to
 
-            2345
-            0000
-            0015
-            0030
-            0045
-            0100
+            2345        9
+            0000        10
+            0015        10
+            0030        10
+            0045        10
+            0100        10
 
         """
         four_digit_format = []
-        for t in col:
+        julian_day = []
+        for i, r in col.iterrows():
+            t = r.Time
+            j = r.JulianDay
 
             len = t.astype(str).__len__()
             HHMM = t.astype(str)
@@ -169,9 +173,11 @@ class CampbellData:
                 len = HHMM.__len__()
 
             HHMM = '0000' if t == 2400 else HHMM
+            j = j+1 if t == 2400 else j
             four_digit_format.append(HHMM)
+            julian_day.append(str(j))
 
-        return four_digit_format
+        return julian_day, four_digit_format
 
 
     def load_csv_data(self, fname, col, skip_nrows=4):
@@ -219,8 +225,8 @@ class CampbellData:
         data = self.data.ix[tbl_id]
 
         # convert Julian Day, Year, and 24 hour time into a time stamp and set as index
-        time = self.get_cr10_to_HHMM(data['Time'])
-        ts = pd.to_datetime(data.Year.astype(str) + ' ' + data.JulianDay.astype(str) + ' ' + time, format='%Y %j %H%M')
+        julian_day, time = self.get_cr10_to_HHMM(data[['JulianDay', 'Time']])
+        ts = pd.to_datetime(data.Year.astype(str) + ' ' + julian_day + ' ' + time, format='%Y %j %H%M')
         self.data = data.set_index(ts)
 
 class HOBOdata:
