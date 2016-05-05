@@ -4,6 +4,8 @@ __authors__='Greg Cohn'
 
 import pandas as pd
 import matplotlib.pyplot as plt
+from numpy import shape as shape
+
 
 class CampbellData:
     """
@@ -174,10 +176,10 @@ class CampbellData:
 
     def load_csv_data(self, fname, col, skip_nrows=4):
         """
-
-        :param header:
-        :param skip_nrows:
-        :return:
+        Load comma delimited data into a Pandas DataFrame indexed by column 0
+        :param fname: str. Filepath to datafile
+        :param col: array of cloumn names
+        :param skip_nrows: number of rows to skip. Start reading from the bottom of the header.
         """
         self.data = pd.read_csv(fname, skiprows=skip_nrows, names=col, parse_dates=True, index_col=0)
 
@@ -247,7 +249,8 @@ class MergeData:
         Add a toa5 dataset to the master dataset.
         :param filename: filepath to the toa5 dataset
 
-        Preforms an outer merge (union) of datasets based on DateTimeIndex.
+        Uses self.merge_data to choose the correct method to create an outer 
+        join based on DateTimeIndex.
         """
         csi = CampbellData()
         csi.load_toa5_data(filename)
@@ -262,7 +265,8 @@ class MergeData:
         :param headerfile: str. Filepath to cr10 header file.
         :param tbl_id: int. Identifier of desired table array.
 
-        Preforms an outer merge (union) of datasets based on DateTimeIndex.
+        Uses self.merge_data to choose the correct method to create an outer 
+        join based on DateTimeIndex.
         """
         csi = CampbellData()
         csi.load_cr10_array(filename, headerfile, tbl_id)
@@ -272,18 +276,55 @@ class MergeData:
 
     def merge_data(self, data1, data2):
         """
-
-        :param data:
-        :return:
+        Merge multiple formats of input datasets.
+        :param data1: Pandas DataFrame. The parent or master dataset.
+        :param data2: Pandas Data Frame. The child or slave dataset that is 
+        merged into data1
+        :return: a merged dataset with one set of information for each 
+        DateTimeIndex.
+        
+        Datasets containing different columns names are merged on the 
+        DateTimeIndex using an outer join.
+        
+        Datasets with identical column names are merged using an inner 
+        concatenation.
+        
+        Datasets that contain a subset of the master or parent column names 
+        are written to the master DataFrame using timestamp and column indeces. 
+        
+        .. Note::
+            This function will overwrite existing data with newly loaded data.
+            The assumption made is that these columns contain empty or NaN v
+            alues at these locations. 
         """
-        if not self.is_columns_common(data1.columns, data2.columns):
+        col1 = data1.columns
+        col2 = data2.columns
+        
+        if not self.is_any_columns_common(col1, col2):
             df = data1.join(data2, how='outer')
-        elif self.is_columns_common(data1.columns, data2.columns):
+            
+        elif self.is_all_columns_common(col1, col2):
             df = pd.concat([data1, data2], join='outer', ignore_index=False)
+            
+        elif self.is_all_columns_contained(col1, col2):
+            start = data2.index.min()            
+            finish = data2.index.max()
+            common = self.get_columns_commmon(col1, col2)
+
+            '''
+            This is a rare case where 2 or more column structures have been loaded into the data1 (master dataframe),
+            and data2 only matches a subset of the column structures present in data1. However data2 fills in a
+            timeseries gap, where no valued have been recorded, so data1 cannot be indexed by timestamp
+            '''
+            if data1.loc[start:finish, common].empty or data1.loc[start:finish, common].shape[0] < data2[start:finish].shape[0]:
+                df = pd.concat([data1, data2], join='outer', ignore_index=False).sort_index()
+            else:
+                data1.loc[start:finish, common] = data2
+                df = data1
 
         return df
 
-    def is_columns_common(self, columns1, columns2):
+    def is_any_columns_common(self, columns1, columns2):
         """
 
         :param columns:
@@ -294,6 +335,33 @@ class MergeData:
                 return True
 
         return False
+        
+    def is_all_columns_common(self, columns1, columns2):
+        """
+        """
+        if not shape(columns1) ==  shape(columns2):
+            return False
+        elif not all(columns1 == columns2):
+            return False
+        else:
+            return True
+    
+    def is_all_columns_contained(self, container_columns, contained_columns):
+        """
+
+        :param columns:
+        :return:
+        """
+        common = self.get_columns_commmon(container_columns, contained_columns)
+
+        return shape(common)== shape(contained_columns)
+        
+    def get_columns_commmon(self, columns1, columns2):
+        """
+        """
+        
+        return [c for c in columns1 if any(c==columns2)]
+        
 
 
 class ReIndexByTimeCols:
@@ -693,20 +761,19 @@ class PumpOperations:
 
         return plt.gcf(),ax01,ax02,ax11,ax12
 
-class CompareData:
-    """
 
+class CompareData(MergeData):
     """
-    def __init__(self, filename):
+    Compare data values. This can compare similar values from the same data stream, or make comparisons across data s
+    streams.
+    """
+    def __init__(self, title):
         """
 
         :return:
         """
-        dat = CampbellData()
-        dat.load_toa5_data(filename)
-
-        self.data = dat.data
-        self.filename = filename
+        MergeData.__init__(self)
+        self.title = title
 
     def get_data_lim(self, data, buffer=0.1):
         """
@@ -718,11 +785,11 @@ class CompareData:
         buffer. Defaults to 0.1 (10%)
         :return: tuple of min, max values.
         """
-        high = max(data.max())
-        low = min(data.min())
+        high = max(data.dropna().max())
+        low = min(data.dropna().min())
         range = high-low
-        high += range * 0.1
-        low -= range * 0.1
+        high += range * buffer
+        low -= range * buffer
 
         return low, high
 
@@ -732,7 +799,7 @@ class CompareData:
         :param columns:
         :return:
         """
-        data = self.data[columns]
+        data = self.df[columns]
         ax = pd.scatter_matrix(data)
 
         return ax
@@ -743,17 +810,18 @@ class CompareData:
         :param columns:
         :return:
         """
-        data = self.data[columns]
+        data = self.df[columns]
         diffs = data.diff(axis=1)
 
         return diffs[columns[1:]]
 
     def plot_compare_sensors(self, columns, units):
 
-        data = self.data[columns]
+        data = self.df[columns]
         diffs = self.get_diff_sensors(columns)
 
-        ax1 = plt.subplot(3,1,1)
+
+        ax1 = plt.subplot(3, 1, 1)
         x = columns[0]
         y = columns[1:]
         lines1 = plt.plot(data[x], data[y], '.')
@@ -777,7 +845,7 @@ class CompareData:
         plt.plot([low, high], [0, 0], '-k')
 
         ax3 = plt.subplot(3, 1, 3)
-        lines3 = plt.plot(diffs, '-')
+        lines3 = plt.plot(diffs.dropna(), '-')
 
         plt.xlabel('Date')
         plt.ylabel('Diff in' + units)
@@ -786,8 +854,10 @@ class CompareData:
 
         plt.plot([diffs.index[0], diffs.index[-1]], [0, 0], '-k')
 
-        plt_title = self.filename.split('\\')[-1]
+        plt_title = self.title
         plt.suptitle(plt_title)
+
+        return ax1, ax2, ax3, diffs
 
 if __name__ == "__main__":
     my_path = "c:/workspace/CLIM\\"
@@ -857,7 +927,7 @@ if __name__ == "__main__":
     Out[121]: <matplotlib.legend.Legend at 0x229c1438>
     """
 
-    # Test new Trigger call
+    # TEST NEW TRIGGER TABLE CALL
     # trig = PumpOperations(filename)
     # trig.check_values()
 
@@ -868,13 +938,14 @@ if __name__ == "__main__":
 
     # trig.offset_trigger_ts()
     # trig.graph_controls(trig.cont_offset)
-    
-    
+
+    # TEST AGGREGATOR METHOD
     meta = "c:/workspace/CLIM\CLIM_115_header.txt"
     df = CampbellData()
     df.load_cr10_array(filename, meta)
 
     test = MergeData()
     test.add_toa5_data("c:/workspace/CLIM_113\\2016\CLIM_113_2016_060_Table105.dat")
+    test.add_toa5_data("c:/workspace/CLIM_113\\2016\CLIM_113_2016_089_Table105.dat")
     test.add_cr10_data("c:/workspace/CLIM\CLIM_2016_040.DAT", meta,115)
     test.add_cr10_data("c:/workspace/CLIM\CLIM_2016_090.DAT", meta,115)
