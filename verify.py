@@ -817,7 +817,7 @@ class CompareData(MergeData):
         :return:
         """
         data = self.df[columns]
-        diffs = data.diff(axis=1)
+        diffs = data.subtract(data[columns[0]],'index')
 
         return diffs[columns[1:]]
 
@@ -844,7 +844,7 @@ class CompareData(MergeData):
         lines2 = plt.plot(data[x], diffs, '.')
 
         plt.xlabel(x)
-        plt.ylabel('Diff in' + units)
+        plt.ylabel(x + ' - Others in ' + units)
         plt.grid('on')
         plt.legend(lines2, columns[1:])
 
@@ -854,7 +854,7 @@ class CompareData(MergeData):
         lines3 = plt.plot(diffs.dropna(), '-')
 
         plt.xlabel('Date')
-        plt.ylabel('Diff in' + units)
+        plt.ylabel(x + ' - Others in ' + units)
         plt.grid('on')
         plt.legend(lines3, columns[1:])
 
