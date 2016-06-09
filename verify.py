@@ -5,7 +5,18 @@ __authors__='Greg Cohn'
 import pandas as pd
 import matplotlib.pyplot as plt
 from numpy import shape as shape
+from re import findall
 
+def _get_header_line(header, lineno):
+        """
+        Private function. Breaks header line into individual comma delimited parts and strips white space, and double
+        quotation marks.
+        :param header: array of header lines where each line is a single string.
+        :param lineno: int. Index of line number to be parsed
+        :return: array of header components from lineno.
+        """
+        line = [s.strip('"') for s in header[lineno].strip().split('","')]
+        return line
 
 class CampbellData:
     """
@@ -48,17 +59,6 @@ class CampbellData:
 
         self.header = header
 
-    def _get_header_line(self, header, lineno):
-        """
-        Private function. Breaks header line into individual comma delimited parts and strips white space, and double
-        quotation marks.
-        :param header: array of header lines where each line is a single string.
-        :param lineno: int. Index of line number to be parsed
-        :return: array of header components from lineno.
-        """
-        line = [s.strip('"') for s in header[lineno].strip().split(',')]
-        return line
-
     def get_cr10_col(self, header):
         """
         Extract column names for CR10 data array
@@ -69,7 +69,7 @@ class CampbellData:
             A CR10 data array may contain multiple table id's, each with unique columns. Only one table id is handled
             at a time.
         """
-        col = self._get_header_line(header, 0)
+        col = _get_header_line(header, 0)
         return col
 
     def get_toa5_col(self, header):
@@ -78,7 +78,7 @@ class CampbellData:
         :param header: array of header lines where each line is a single string.
         :return: array of column names.
         """
-        col = self._get_header_line(header, 1)
+        col = _get_header_line(header, 1)
         return col
 
     def get_toa5_units(self, header):
@@ -87,7 +87,7 @@ class CampbellData:
         :param header: array of header lines where each line is a single string.
         :return: array of unit definitions
         """
-        units = self._get_header_line(header, 2)
+        units = _get_header_line(header, 2)
         return units
 
     def get_toa5_collection_method(self, header):
@@ -96,7 +96,7 @@ class CampbellData:
         :param header: array of header lines where each line is a single string.
         :return: array of method definitions.
         """
-        meth = self._get_header_line(header, 3)
+        meth = _get_header_line(header, 3)
         return meth
 
     def get_toa5_prog(self, header):
@@ -231,14 +231,95 @@ class CampbellData:
 
 class HOBOdata:
     """
+    Load and process data from HOBO_ loggers produced by the ONSET company.
 
+    .. _HOBO : http://www.onsetcomp.com/hobo-data-loggers
     """
     def __init__(self):
         """
+        """
+        self.header = []
+        self.data = pd.DataFrame()
 
+    def read_csv_header(self, file_name, n_lines=1):
+        """
+        Read the header lines from the beginning of a file. Reads n_lines, and stores them as headers object.
+        :param file_name: str. File path of file to be read.
+        :param n_lines: keyword argument. Number of lines in header. i.e. number of lines to read. Default to 2
+        """
+        f = open(file_name)
+        header = [f.next() for l in range(0, n_lines)]
+        f.close()
+
+        self.header = header
+
+    def get_csv_sn(self, header):
+        """
+        :param header: array of header lines where each line is a single string.
         :return:
         """
 
+        return re.findall("LGR S/N[^)]*", header)[0].split(':')[-1]
+
+    def get_csv_GMT_offset(self, header):
+        """
+        Get timezone as an offset from Greenwhich Mean Time from the header file
+        :param header: array of header lines where each line is a single string.
+        :return: string of timezone offset from GMT
+        ..Example PST
+             '-08:00'
+        """
+        gmt_loc = header.find('GMT')
+        return header[gmt_loc+3:gmt_loc+9]
+
+    def get_csv_temp_unit(self, header):
+        """
+        Get unit for temperature records
+        :param header: array of header lines where each line is a single string.
+        :return: str with single letter defining units for temperature.
+        """
+        deg_loc = header.find('\xb0')
+        return header[deg_loc+1:deg_loc+2]
+
+    def get_csv_col(self, header, lineno):
+        """
+        Extract column names from csv format
+        :param header: array of header lines where each line is a single string.
+        :return: array of column names.
+        """
+        col = _get_header_line(header, lineno)
+        col_edit = []
+        for c in col:
+            col_edit.append(c.split(',')[0])
+
+        return col_edit
+
+    def load_csv_data(self, fname, skip_nrows=2, col_line=1):
+        """
+        Load csv file output by HOBO pendants into a Pandas DataFrame.
+        :param fname: str. Filepath of csv data file
+        :param col: array of cloumn names
+        :param skip_nrows: number of rows to skip. Start reading from the bottom of the header.
+        """
+        self.read_csv_header(fname, skip_nrows)
+        col = self.get_csv_col(self.header, col_line)
+        self.data = pd.read_csv(fname, parse_dates=[[1, 2]], skiprows=skip_nrows, names=col, index_col='Date_Time')
+
+    def is_timezone_correct(self, tz):
+        """
+        Check the timezone in which data was recorded against the expected timezone
+        :param tz: a timezone as number of hours offset from Greenwhich Mean Time
+        :return: Logical variable
+        """
+        ts_str = str(tz)
+        gmt = self.get_csv_GMT_offset(self.header)
+        if ts_str in gmt:
+            return True
+        elif ts_str[0] in gmt and ts_str[-1] in gmt:
+            # In this case, the number -8 would return True for GMT-08:00 because both '-' and '8' are in '-8:00'
+            return True
+        else:
+            return False
 
 class MergeData:
     """
