@@ -119,17 +119,17 @@ class CampbellData:
 
     def get_toa5_progid(self, header):
         """
-
-        :param header:
-        :return:
+        Extract program ID from toa5 header
+        :param header: array of header lines where each line is a single string
+        :return: string containing program ID
         """
         return header[0].split(',')[6]
 
     def get_toa5_logger(self, header):
         """
-
-        :param header:
-        :return:
+        Extract logger type from toa5 header
+        :param header: array of header lies where eaqch line is a single string
+        :return: string containing program ID
         """
         return header[0].split(',')[2]
 
