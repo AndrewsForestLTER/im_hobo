@@ -305,6 +305,28 @@ class HOBOdata:
         col = self.get_csv_col(self.header, col_line)
         self.data = pd.read_csv(fname, parse_dates=[[1, 2]], skiprows=skip_nrows, names=col, index_col='Date_Time')
 
+    def export_to_GCE_csv(self, csvname, col_line):
+       """
+       Export the HOBO data to a GCE friendly csv file
+       :param csvname: str. Filepath to output csv file
+       :param col_line: a 0 based index identifying which line contains the column names.
+       """
+       df =  self.data
+       export_col = ['RecNum', 'Temp', 'Intensity']
+       col = self.get_csv_col(self.header, col_line)
+
+       # map desired output to column index
+       export_col_index = {'#': 'RecNum'}
+       for c in col:
+           for ec in export_col:
+               if ec in c:
+                   export_col_index[c]=ec
+
+       df.rename(columns=export_col_index, inplace=True)
+       df.index.rename('Date', inplace=True)
+
+       df.to_csv()
+
     def is_timezone_correct(self, tz):
         """
         Check the timezone in which data was recorded against the expected timezone
