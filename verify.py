@@ -294,16 +294,43 @@ class HOBOdata:
 
         return col_edit
 
+    def get_timestamp_col(self, col):
+        """
+        Time stamps can be exported by HOBO into either 1 or 2 columns
+        :param col: an array of column names
+        :return: array of index locations
+        :return: array of column name(s) that make the timestamp
+        """
+        i = 0
+        timestamp_i = []
+        timestamp_n = []
+        for c in col:
+            if 'Date' in c or 'Time' in c:
+                timestamp_i.append(i)
+                timestamp_n.append(c)
+            i += 1
+
+        if timestamp_i.__len__() > 1:
+            timestamp_col = timestamp_n[0] + '_' + timestamp_n[1]
+            timestamp_i = [timestamp_i]
+        else:
+             timestamp_col = timestamp_n[0]
+
+        return timestamp_i, timestamp_col
+
     def load_csv_data(self, fname, skip_nrows=2, col_line=1):
         """
         Load csv file output by HOBO pendants into a Pandas DataFrame.
         :param fname: str. Filepath of csv data file
-        :param col: array of cloumn names
         :param skip_nrows: number of rows to skip. Start reading from the bottom of the header.
+        :param col_line: a 0 based index identifying which line contains the column names.
         """
+        col_line = 1 if skip_nrows is 2 else 0
+
         self.read_csv_header(fname, skip_nrows)
         col = self.get_csv_col(self.header, col_line)
-        self.data = pd.read_csv(fname, parse_dates=[[1, 2]], skiprows=skip_nrows, names=col, index_col='Date_Time')
+        date_col_i, date_col_n = self.get_timestamp_col(col)
+        self.data = pd.read_csv(fname, parse_dates=date_col_i, skiprows=skip_nrows, names=col, index_col=date_col_n)
 
     def is_timezone_correct(self, tz):
         """
@@ -1027,12 +1054,19 @@ if __name__ == "__main__":
     # trig.graph_controls(trig.cont_offset)
 
     # TEST AGGREGATOR METHOD
-    meta = "c:/workspace/CLIM\CLIM_115_header.txt"
-    df = CampbellData()
-    df.load_cr10_array(filename, meta)
+    # meta = "c:/workspace/CLIM\CLIM_115_header.txt"
+    # df = CampbellData()
+    # df.load_cr10_array(filename, meta)
+    #
+    # test = MergeData()
+    # test.add_toa5_data("c:/workspace/CLIM_113\\2016\CLIM_113_2016_060_Table105.dat")
+    # test.add_toa5_data("c:/workspace/CLIM_113\\2016\CLIM_113_2016_089_Table105.dat")
+    # test.add_cr10_data("c:/workspace/CLIM\CLIM_2016_040.DAT", meta,115)
+    # test.add_cr10_data("c:/workspace/CLIM\CLIM_2016_090.DAT", meta,115)
 
-    test = MergeData()
-    test.add_toa5_data("c:/workspace/CLIM_113\\2016\CLIM_113_2016_060_Table105.dat")
-    test.add_toa5_data("c:/workspace/CLIM_113\\2016\CLIM_113_2016_089_Table105.dat")
-    test.add_cr10_data("c:/workspace/CLIM\CLIM_2016_040.DAT", meta,115)
-    test.add_cr10_data("c:/workspace/CLIM\CLIM_2016_090.DAT", meta,115)
+    # TEST HOBO LOAD
+    test = HOBOdata()
+    test.load_csv_data('E:\workspace\sensors\\verify\hobo_tests\\557_2013_150.csv', 2,1)
+
+    x = HOBOdata()
+    x.load_csv_data('E:\workspace\sensors/verify\hobo_tests\RS12_2015_180_1___test.csv',2, 1)
