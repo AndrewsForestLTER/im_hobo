@@ -1,3 +1,4 @@
+# coding=utf-8
 # date: 3/15/16
 # created by: Greg Cohn
 __authors__='Greg Cohn'
@@ -6,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from numpy import shape as shape
 from re import findall
+import pytz
 
 def _get_header_line(header, lineno):
         """
@@ -241,50 +243,88 @@ class HOBOdata:
         self.header = []
         self.data = pd.DataFrame()
 
-    def read_csv_header(self, file_name, n_lines=1):
+    def read_csv_header(self, file_name):
         """
         Read the header lines from the beginning of a file. Reads n_lines, and stores them as headers object.
         :param file_name: str. File path of file to be read.
         :param n_lines: keyword argument. Number of lines in header. i.e. number of lines to read. Default to 2
         """
+        n_lines = self.get_header_nlines(file_name)
         f = open(file_name)
         header = [f.next() for l in range(0, n_lines)]
         f.close()
 
         self.header = header
 
-    def get_csv_sn(self, header):
+    def get_header_nlines(self, file_name):
+        """
+        Estimate how many header lines exist in a file
+        :param file_name:
+        :return:
+
+        .. Warning::
+            This is a simplistic filter that searches for the first row where there are no quotes and returns line_num
+            - 1 on a 1 based index.
+             Complex files with quotes around data fields, or no quotes in header lines will not be caught.
+
+        .. Example::
+            'Plot Title: RS12'
+            '#','Date Time, GMT-07:00','Temp, °C','Intensity, lum/ft²','Coupler Attached','Stopped','End Of File'
+            1,11/17/2014 11:10:00 AM,3.472,16.0,,,
+
+            returns 2
+        """
+        i = 0
+        f = open(file_name)
+        while True:
+            l = f.next().count('"')
+            if l is 0:
+                break
+            else:
+                i += 1
+
+        f.close()
+        return i
+
+    def get_csv_sn(self, header, lineno=-1):
         """
         :param header: array of header lines where each line is a single string.
+        :param lineno: keyword argument. index of header array. Function operates on specified index. Default -1
         :return:
         """
 
-        return re.findall("LGR S/N[^)]*", header)[0].split(':')[-1]
+        return findall("LGR S/N[^)]*", header[lineno])[0].split(':')[-1]
 
-    def get_csv_GMT_offset(self, header):
+    def get_csv_GMT_offset(self, header, lineno=-1):
         """
         Get timezone as an offset from Greenwhich Mean Time from the header file
+        :param lineno: keyword argument. index of header array. Function operates on specified index. Default -1
         :param header: array of header lines where each line is a single string.
         :return: string of timezone offset from GMT
         ..Example PST
              '-08:00'
         """
-        gmt_loc = header.find('GMT')
-        return header[gmt_loc+3:gmt_loc+9]
+        gmt = findall('GMT[^"]*', header[lineno])[0].split(':')
+        hr = float(gmt[0][3:])
+        hr_frac = float(gmt[-1])
+        hr += hr_frac
+        return hr
 
-    def get_csv_temp_unit(self, header):
+    def get_csv_temp_unit(self, header, lineno=-1):
         """
         Get unit for temperature records
         :param header: array of header lines where each line is a single string.
+        :param lineno: keyword argument. index of header array. Function operates on specified index. Default -1
         :return: str with single letter defining units for temperature.
         """
-        deg_loc = header.find('\xb0')
-        return header[deg_loc+1:deg_loc+2]
+        deg = findall('\xb0[^ ",]*', header[lineno])
+        return deg[-1]
 
-    def get_csv_col(self, header, lineno):
+    def get_csv_col(self, header, lineno=-1):
         """
         Extract column names from csv format
         :param header: array of header lines where each line is a single string.
+        :param lineno: keyword argument. index of header array. Function operates on specified index. Default -1
         :return: array of column names.
         """
         col = _get_header_line(header, lineno)
@@ -318,29 +358,29 @@ class HOBOdata:
 
         return timestamp_i, timestamp_col
 
-    def load_csv_data(self, fname, skip_nrows=2, col_line=1):
+    def load_csv_data(self, fname):
         """
         Load csv file output by HOBO pendants into a Pandas DataFrame.
         :param fname: str. Filepath of csv data file
         :param skip_nrows: number of rows to skip. Start reading from the bottom of the header.
         :param col_line: a 0 based index identifying which line contains the column names.
         """
-        col_line = 1 if skip_nrows is 2 else 0
 
-        self.read_csv_header(fname, skip_nrows)
-        col = self.get_csv_col(self.header, col_line)
+        self.read_csv_header(fname)
+        skip_nrows = self.header.__len__()
+        col = self.get_csv_col(self.header)
         date_col_i, date_col_n = self.get_timestamp_col(col)
         self.data = pd.read_csv(fname, parse_dates=date_col_i, skiprows=skip_nrows, names=col, index_col=date_col_n)
 
-    def export_to_GCE_csv(self, csvname, col_line):
+    def export_to_GCE_csv(self, csvname):
        """
        Export the HOBO data to a GCE friendly csv file
        :param csvname: str. Filepath to output csv file
        :param col_line: a 0 based index identifying which line contains the column names.
        """
-       df =  self.data
+       df = self.data
        export_col = ['RecNum', 'Temp', 'Intensity']
-       col = self.get_csv_col(self.header, col_line)
+       col = self.get_csv_col(self.header)
 
        # map desired output to column index
        export_col_index = {'#': 'RecNum'}
@@ -352,7 +392,21 @@ class HOBOdata:
        df.rename(columns=export_col_index, inplace=True)
        df.index.rename('Date', inplace=True)
 
-       df.to_csv()
+       df.to_csv(csvname, columns=export_col)
+
+    def set_data_GMT_offset(self, hr_offset):
+        """
+        Define time zone of DataFrame timestamps in offset from UTC/GMT
+        :param hr_offset: floating point of time zone in hours difference from Greenwhich Mean Time
+        """
+        ts = self.data
+        min_offset = hr_offset * 60
+        gmt_offset = pytz.FixedOffset(min_offset)
+
+        if ts.index.tz is None:
+            self.data = ts.tz_localize(gmt_offset)
+        else:
+            self.data = ts.tz_convert(gmt_offset)
 
     def is_timezone_correct(self, tz):
         """
@@ -362,13 +416,20 @@ class HOBOdata:
         """
         ts_str = str(tz)
         gmt = self.get_csv_GMT_offset(self.header)
-        if ts_str in gmt:
-            return True
-        elif ts_str[0] in gmt and ts_str[-1] in gmt:
-            # In this case, the number -8 would return True for GMT-08:00 because both '-' and '8' are in '-8:00'
-            return True
-        else:
-            return False
+        return True if ts_str == gmt else False
+
+    def format_timezone(self, tz=-8):
+        """
+        Check that timezone is correct, and if not, adjust the time zone.
+        :param tz:a timezone as number of hours offset from Greenwhich Mean Time
+        :return:
+        """
+        gmt_num = self.get_csv_GMT_offset(self.header)
+        self.set_data_GMT_offset(gmt_num)
+        if not self.is_timezone_correct(tz):
+            self.set_data_GMT_offset(tz)
+
+
 
 class MergeData:
     """
@@ -1088,7 +1149,7 @@ if __name__ == "__main__":
 
     # TEST HOBO LOAD
     test = HOBOdata()
-    test.load_csv_data('E:\workspace\sensors\\verify\hobo_tests\\557_2013_150.csv', 2,1)
+    test.load_csv_data('E:\workspace\sensors\\verify\hobo_tests\\557_2013_150.csv')
 
     x = HOBOdata()
-    x.load_csv_data('E:\workspace\sensors/verify\hobo_tests\RS12_2015_180_1___test.csv',2, 1)
+    x.load_csv_data('E:\workspace\sensors/verify\hobo_tests\RS12_2015_180_1___test.csv')
