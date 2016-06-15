@@ -1,3 +1,4 @@
+# coding=utf-8
 # date: 3/15/16
 # created by: Greg Cohn
 __authors__='Greg Cohn'
@@ -6,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from numpy import shape as shape
 from re import findall
+import pytz
 
 def _get_header_line(header, lineno):
         """
@@ -392,6 +394,19 @@ class HOBOdata:
 
        df.to_csv(csvname, columns=export_col)
 
+    def set_data_GMT_offset(self, hr_offset):
+        """
+        Define time zone of DataFrame timestamps in offset from UTC/GMT
+        :param hr_offset: floating point of time zone in hours difference from Greenwhich Mean Time
+        """
+        ts = self.data
+        min_offset = hr_offset * 60
+        gmt_offset = pytz.FixedOffset(min_offset)
+
+        if ts.index.tz is None:
+            self.data = ts.tz_localize(gmt_offset)
+        else:
+            self.data = ts.tz_convert(gmt_offset)
 
     def is_timezone_correct(self, tz):
         """
@@ -401,13 +416,20 @@ class HOBOdata:
         """
         ts_str = str(tz)
         gmt = self.get_csv_GMT_offset(self.header)
-        if ts_str in gmt:
-            return True
-        elif ts_str[0] in gmt and ts_str[-1] in gmt:
-            # In this case, the number -8 would return True for GMT-08:00 because both '-' and '8' are in '-8:00'
-            return True
-        else:
-            return False
+        return True if ts_str == gmt else False
+
+    def format_timezone(self, tz=-8):
+        """
+        Check that timezone is correct, and if not, adjust the time zone.
+        :param tz:a timezone as number of hours offset from Greenwhich Mean Time
+        :return:
+        """
+        gmt_num = self.get_csv_GMT_offset(self.header)
+        self.set_data_GMT_offset(gmt_num)
+        if not self.is_timezone_correct(tz):
+            self.set_data_GMT_offset(tz)
+
+
 
 class MergeData:
     """
