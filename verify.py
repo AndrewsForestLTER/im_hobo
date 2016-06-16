@@ -2,6 +2,7 @@
 # date: 3/15/16
 # created by: Greg Cohn
 __authors__='Greg Cohn'
+__version__='0.1'
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -242,6 +243,7 @@ class HOBOdata:
         """
         self.header = []
         self.data = pd.DataFrame()
+        self.filename = ''
 
     def read_csv_header(self, file_name):
         """
@@ -249,6 +251,8 @@ class HOBOdata:
         :param file_name: str. File path of file to be read.
         :param n_lines: keyword argument. Number of lines in header. i.e. number of lines to read. Default to 2
         """
+        self.filename = file_name
+
         n_lines = self.get_header_nlines(file_name)
         f = open(file_name)
         header = [f.next() for l in range(0, n_lines)]
@@ -392,7 +396,18 @@ class HOBOdata:
        df.rename(columns=export_col_index, inplace=True)
        df.index.rename('Date', inplace=True)
 
-       df.to_csv(csvname, columns=export_col)
+       t_exp = pd.datetime.now(tz=pytz.utc).strftime('%Y-%m-%d %H:%M')
+       prog = __name__
+       prog_v = __version__
+       fname = self.filename
+       gmt_orig = self.get_csv_GMT_offset(self.header)
+
+       f = open(csvname, 'w')
+       header_str = '%s processed on %s UTC by %s%s. Orig. time GMT %.0f. Output %s\n'%(fname, t_exp, prog, prog_v, gmt_orig, csvname)
+       f.write(header_str)
+       f.close()
+
+       df.to_csv(csvname, columns=export_col, mode='a')
 
     def set_data_GMT_offset(self, hr_offset):
         """
@@ -1153,3 +1168,7 @@ if __name__ == "__main__":
 
     x = HOBOdata()
     x.load_csv_data('E:\workspace\sensors/verify\hobo_tests\RS12_2015_180_1___test.csv')
+    x.format_timezone(-8)
+    x.export_to_GCE_csv('E:\workspace\sensors/verify\hobo_tests\RS12_outtest.csv')
+
+
