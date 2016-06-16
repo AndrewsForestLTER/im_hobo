@@ -444,6 +444,30 @@ class HOBOdata:
         if not self.is_timezone_correct(tz):
             self.set_data_GMT_offset(tz)
 
+    def is_temp_celsius(self):
+        """
+        Read units definition from header and return true if units are celsius
+        :return: Boolean. True if temperature is recorded in celsius.
+        """
+        units = self.get_csv_temp_unit(self.header)
+        return 'C' == units[-1]
+
+    def temp_F_to_C(self, temp):
+        """
+        Convert temperature records from Fahrenheit
+        :param temp: a temperature value or list of temperature values in degrees fahrenheit.
+        :return: a temperature value or list of temperature values in degrees celsius
+        """
+        return temp*(5./9.)-32
+
+    def format_temp(self, col='Temp', unit='C'):
+        """
+        Format temperature records to desired units
+        :param col: keyword argurment. Column containing temperature data. Defaults to 'Temp'
+        :param unit: keyword argument. str defining desired unit. Default is 'C'
+        """
+        if unit is 'C':
+            self.data = self.temp_F_to_C(col) if not self.is_temp_celsius() else self.data
 
 
 class MergeData:
@@ -1169,6 +1193,7 @@ if __name__ == "__main__":
     x = HOBOdata()
     x.load_csv_data('E:\workspace\sensors/verify\hobo_tests\RS12_2015_180_1___test.csv')
     x.format_timezone(-8)
+    x.format_temp()
     x.export_to_GCE_csv('E:\workspace\sensors/verify\hobo_tests\RS12_outtest.csv')
 
 
