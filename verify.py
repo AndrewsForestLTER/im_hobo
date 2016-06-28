@@ -579,6 +579,11 @@ class MergeData:
                 data1.loc[start:finish, common] = data2
                 df = data1
 
+        elif self.is_any_columns_common(col1, col2):
+            # This means that this is NOT a subset of columns, it is NOT a different set of columns
+            # this pertains to partially overlapping column names
+            df = pd.concat([data1, data2], join='outer', ignore_index=False)
+
         return df
 
     def is_any_columns_common(self, columns1, columns2):
