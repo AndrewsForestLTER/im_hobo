@@ -163,11 +163,11 @@ class CampbellData:
         four_digit_format = []
         julian_day = []
         for i, r in col.iterrows():
-            t = int(r.Time)
-            j = int(r.JulianDay)
+            t = r.Time
+            j = r.JulianDay
 
-            len = str(t).__len__()
-            HHMM = str(t)
+            len = t.astype(str).__len__()
+            HHMM = t.astype(str)
             while len<4:
                 HHMM = '0' + HHMM
                 len = HHMM.__len__()
