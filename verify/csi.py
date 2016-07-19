@@ -81,17 +81,6 @@ class CampbellData:
         col = _get_header_line(header, 1)
         return col
 
-    def get_provisional_col(self, header):
-        """
-        Extract column names from provisional [1]_ data header format.
-        :param header: array of header lines where each line is a single string.
-        :return: array of column names.
-
-        .. [1] http://andrewsforest.oregonstate.edu/lter/about/weather/portal/
-        """
-        col = _get_header_line(header, 2)
-        return col
-
     def get_toa5_units(self, header):
         """
         Extract unit definitions from toa5 header format.
@@ -207,17 +196,6 @@ class CampbellData:
         self.read_header(fname)
         col = self.get_toa5_col(self.header)
         self.load_csv_data(fname, col)
-
-    def load_provisional_data(self, fname):
-        """
-        Load datafile from provisional[1]_ data into a Pandas DataFrame
-        :param fname: str. Filepath of provisional datafile
-
-        .. [1] http://andrewsforest.oregonstate.edu/lter/about/weather/portal/
-        """
-        self.read_header(fname)
-        col = self.get_provisional_col(self.header)
-        self.load_csv_data(fname, col, skip_nrows=5, time_col=1)
 
     def load_cr10_array(self, fname, header_file, tbl_id=115):
         """

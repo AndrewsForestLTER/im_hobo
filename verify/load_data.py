@@ -9,6 +9,106 @@ __authors__ = 'Greg Cohn'
 __version__ = '0.1'
 
 
+class HJ_Data:
+    """
+    Load both provisional [1]_ and final [2]_ data processed  for quality assurance by the HJ Andrews Information
+    Management group.
+
+    .. Note::
+        Data initially undergoes a combination of auotmated and manually QAQC using the GCE_ program. This data is
+        considered provisional [1]_. It then undergoes a more thorough processing for final [2]_ storage in and SQL
+        database.
+
+        .. _GCE : https://gce-lter.marsci.uga.edu/public/im/tools/data_toolbox.htm
+
+    .. _[1] : http://andrewsforest.oregonstate.edu/lter/about/weather/portal/
+    .. _[2] : http://andrewsforest.oregonstate.edu/lter/about/weather/hja.cfm?topnav=16
+    """
+    def __init__(self):
+        """
+
+        """
+        self.header = []
+        self.data = pd.DataFrame()
+
+    def _get_header_line(self, header, lineno, splitstr='","'):
+        """
+        Private function. Breaks header line into individual comma delimited parts and strips white space, and double
+        quotation marks.
+        :param header: array of header lines where each line is a single string.
+        :param lineno: int. Index of line number to be parsed
+        :param splitstr: str identifying the delimeter for the header line
+        :return: array of header components from lineno.
+        """
+        line = [s.strip('"') for s in header[lineno].strip().split(splitstr)]
+        return line
+
+    def read_header(self, file_name, n_lines=4):
+        """
+        Read the header lines from the beginning of a file. Reads n_lines, and stores them as headers info.
+        :param file_name: str. File path of file to be read.
+        :param n_lines: keyword argument. Number of lines in header. i.e. number of lines to read. Default to 4 (toa5)
+        """
+        f = open(file_name)
+        header = [f.next() for l in range(0, n_lines)]
+        f.close()
+
+        self.header = header
+
+    def get_provisional_col(self, header):
+        """
+        Extract column names from provisional [1]_ data header format.
+        :param header: array of header lines where each line is a single string.
+        :return: array of column names.
+
+        .. _[1] http://andrewsforest.oregonstate.edu/lter/about/weather/portal/
+        """
+        col = self._get_header_line(header, 2)
+        return col
+
+    def get_ms001_col(self, header):
+        """
+        Extract column names from ms001 [2]_ data header format.
+        :param header: header: array of header lines where each line is a single string.
+        :return: array of column names
+
+        .. _[2] : http://andrewsforest.oregonstate.edu/lter/about/weather/hja.cfm?topnav=16
+        """
+        col = self._get_header_line(header, lineno=0, splitstr=",")
+        return col
+
+    def load_csv_data(self, fname, col, skip_nrows=4, time_col=[0]):
+        """
+        Load comma delimited data into a Pandas DataFrame indexed by column 0
+        :param fname: str. Filepath to datafile
+        :param col: array of cloumn names
+        :param skip_nrows: number of rows to skip. Start reading from the bottom of the header.
+        """
+        self.data = pd.read_csv(fname, skiprows=skip_nrows, names=col, parse_dates=True, index_col=time_col)
+
+    def load_provisional_data(self, fname):
+        """
+        Load datafile from provisional[1]_ data into a Pandas DataFrame
+        :param fname: str. Filepath of provisional datafile
+
+        .. _[1] http://andrewsforest.oregonstate.edu/lter/about/weather/portal/
+        """
+        self.read_header(fname)
+        col = self.get_provisional_col(self.header)
+        self.load_csv_data(fname, col, skip_nrows=5, time_col=1)
+
+    def load_ms001_data(self, fname):
+        """
+        Load datafile from ms001 [1]_ data into a Pandas DataFrame
+        :param fname: str. Filepath of ms001 datafile
+
+        .. _[2] : http://andrewsforest.oregonstate.edu/lter/about/weather/hja.cfm?topnav=16
+        """
+        self.read_header(fname)
+        col = self.get_ms001_col(self.header)
+        self.load_csv_data(fname, col, skip_nrows=1, time_col=[6, 7])
+
+
 class MergeData:
     """
     Aggregator class to collect multiple datasets and  merge them together.
