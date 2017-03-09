@@ -2,6 +2,7 @@
 import pandas as pd
 from numpy import shape
 from csi import CampbellData
+from hobo import HOBOdata
 
 # date: 7/06/16
 # created by: Greg Cohn
@@ -95,7 +96,7 @@ class HJ_Data:
         """
         self.read_header(fname)
         col = self.get_provisional_col(self.header)
-        self.load_csv_data(fname, col, skip_nrows=5, time_col=1)
+        self.load_csv_data(fname, col, skip_nrows=5, time_col=[1])
 
     def load_ms001_data(self, fname):
         """
@@ -118,6 +119,48 @@ class MergeData:
         Initialize aggregator class
         """
         self.df = pd.DataFrame()
+
+    def add_provisional_data(self, filename):
+        """
+        Add an HJA provisional csv to the master dataset
+        :param filename: filepath to provisional csv
+
+        Uses self.merge_data to choose the correct method to create an outer
+        join based on DateTimeIndex.
+        """
+        hja = HJ_Data()
+        hja.load_provisional_data(filename)
+
+        df = self.merge_data(self.df, hja.data)
+        self.df = df
+
+    def add_ms001_data(self, filename):
+        """
+        Add a csv from the final HJA ms001 database to the master dataset
+        :param filename: filepath to provisional csv
+
+        Uses self.merge_data to choose the correct method to create an outer
+        join based on DateTimeIndex.
+        """
+        hja = HJ_Data()
+        hja.load_ms001_data(filename)
+
+        df = self.merge_data(self.df, hja.data)
+        self.df = df
+
+    def add_hobo_data(self, filename):
+        """
+        Add a csvb dataset generated from .hobo files to the master dataset.
+        :param filename: filepath to the hobo dataset
+
+        Uses self.merge_data to choose the correct method to create an outer
+        join based on DateTimeIndex.
+        """
+        hobo = HOBOdata()
+        hobo.load_csv_data(filename)
+
+        df = self.merge_data(self.df, hobo.data)
+        self.df = df
 
     def add_toa5_data(self, filename):
         """

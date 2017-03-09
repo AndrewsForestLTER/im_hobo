@@ -321,7 +321,8 @@ class CompareData(MergeData):
         :return:
         """
         data = self.df[columns]
-        diffs = data.subtract(data[columns[0]],'index')
+        diffs = data.subtract(data[columns[0]], 'index')
+
 
         return diffs[columns[1:]]
 
@@ -348,7 +349,7 @@ class CompareData(MergeData):
         lines2 = plt.plot(data[x], diffs, '.')
 
         plt.xlabel(x)
-        plt.ylabel(x + ' - Others in ' + units)
+        plt.ylabel('Others - ' + x + ' in ' + units)
         plt.grid('on')
         plt.legend(lines2, columns[1:])
 
@@ -358,7 +359,7 @@ class CompareData(MergeData):
         lines3 = plt.plot(diffs.dropna(), '-')
 
         plt.xlabel('Date')
-        plt.ylabel(x + ' - Others in ' + units)
+        plt.ylabel('Others - ' + x + ' in ' + units)
         plt.grid('on')
         plt.legend(lines3, columns[1:])
 
@@ -514,6 +515,11 @@ class SolarPower:
 
 
 if __name__ == "__main__":
+    prim = CompareData('Prim450')
+    prim.add_toa5_data('E:\workspace\sensors\\2017Jan_Prim450\primet_226_a_5min_2017.csv')
+    prim.plot_compare_sensors(['AIRTEMP_MEAN_450_0_01','AIRTEMP_MEAN_150_0_04', 'AIRTEMP_MEAN_250_0_03',
+       'AIRTEMP_MEAN_350_0_02'],'$^{\circ}$ C')
+    """
     # TEST Data Comparison
     rs = CompareData('Hourly_Avg_RS_05')
     header = "c:/workspace/RS05\\2016\\005\RS05_115_Header.dat"
@@ -540,6 +546,7 @@ if __name__ == "__main__":
     # TEST NEW TRIGGER TABLE CALL
     trig = PumpOperations(filename)
     trig.check_values()
+    """
 
     """
     >>> test.SA_OFF_TIME_Max[~np.isnan(test.SA_OFF_TIME_Max)].plot(color='r')
