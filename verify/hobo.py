@@ -181,9 +181,10 @@ class HOBOdata:
        :param col_line: a 0 based index identifying which line contains the column names.
        """
        df = self.data
-       export_col = ['RecNum', 'Temp', 'Intensity']
+       export_col = ['Date', 'Temp', 'Intensity']
        col = self.get_csv_col(self.header)
 
+       """
        # map desired output to column index
        export_col_index = {'#': 'RecNum'}
        for c in col:
@@ -191,8 +192,12 @@ class HOBOdata:
                if ec in c:
                    export_col_index[c]=ec
 
-       df.rename(columns=export_col_index, inplace=True)
-       df.index.rename('Date', inplace=True)
+        df.rename(columns=export_col_index, inplace=True)
+       """
+
+       df['Date'] = df.index
+       df.set_index(keys='#', drop=True, inplace=True)
+       df.index.rename('RecNum', inplace=True)
 
        t_exp = pd.datetime.now(tz=pytz.utc).strftime('%Y-%m-%d %H:%M')
        prog = __name__
@@ -201,7 +206,7 @@ class HOBOdata:
        gmt_orig = self.get_csv_GMT_offset(self.header)
 
        f = open(csvname, 'w')
-       header_str = '%s processed on %s UTC by %s%s. Orig. time GMT %.0f. Output %s\n'%(fname, t_exp, prog, prog_v, gmt_orig, csvname)
+       header_str = '%s processed on %s UTC by %s v%s. Orig. record GMT %.0f. Output file %s\n'%(fname, t_exp, prog, prog_v, gmt_orig, csvname)
        f.write(header_str)
        f.close()
 
@@ -283,4 +288,4 @@ if __name__ == "__main__":
     x.load_csv_data('E:\workspace\sensors/verify\hobo_tests\RS12_2015_180_1___test.csv')
     x.format_timezone(-8)
     x.format_temp()
-    x.export_to_GCE_csv('E:\workspace\sensors/verify\hobo_tests\RS12_outtest.csv')
+    x.export_to_GCE_csv('E:\workspace\sensors/verify\hobo_tests\New_outtest.csv')
