@@ -356,7 +356,7 @@ class CompareData(MergeData):
         plt.plot([low, high], [0, 0], '-k')
 
         ax3 = plt.subplot(3, 1, 3)
-        lines3 = plt.plot(diffs.dropna(), '-')
+        lines3 = plt.plot(diffs, '-')
 
         plt.xlabel('Date')
         plt.ylabel('Others - ' + x + ' in ' + units)
