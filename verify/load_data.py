@@ -9,22 +9,11 @@ from hobo import HOBOdata
 __authors__ = 'Greg Cohn'
 __version__ = '0.1'
 
-
-class HJ_Data:
+class Data_File:
     """
-    Load both provisional [1]_ and final [2]_ data processed  for quality assurance by the HJ Andrews Information
-    Management group.
-
-    .. Note::
-        Data initially undergoes a combination of auotmated and manually QAQC using the GCE_ program. This data is
-        considered provisional [1]_. It then undergoes a more thorough processing for final [2]_ storage in and SQL
-        database.
-
-        .. _GCE : https://gce-lter.marsci.uga.edu/public/im/tools/data_toolbox.htm
-
-    .. _[1] : http://andrewsforest.oregonstate.edu/lter/about/weather/portal/
-    .. _[2] : http://andrewsforest.oregonstate.edu/lter/about/weather/hja.cfm?topnav=16
+    generic file handling methods
     """
+
     def __init__(self):
         """
 
@@ -56,6 +45,36 @@ class HJ_Data:
 
         self.header = header
 
+    def load_csv_data(self, fname, col, skip_nrows=4, time_col=[0]):
+        """
+        Load comma delimited data into a Pandas DataFrame indexed by column 0
+        :param fname: str. Filepath to datafile
+        :param col: array of cloumn names
+        :param skip_nrows: number of rows to skip. Start reading from the bottom of the header.
+        """
+        self.data = pd.read_csv(fname, skiprows=skip_nrows, names=col, parse_dates=True, index_col=time_col)
+
+class HJ_Data(Data_File):
+    """
+    Load both provisional [1]_ and final [2]_ data processed  for quality assurance by the HJ Andrews Information
+    Management group.
+
+    .. Note::
+        Data initially undergoes a combination of auotmated and manually QAQC using the GCE_ program. This data is
+        considered provisional [1]_. It then undergoes a more thorough processing for final [2]_ storage in and SQL
+        database.
+
+        .. _GCE : https://gce-lter.marsci.uga.edu/public/im/tools/data_toolbox.htm
+
+    .. _[1] : http://andrewsforest.oregonstate.edu/lter/about/weather/portal/
+    .. _[2] : http://andrewsforest.oregonstate.edu/lter/about/weather/hja.cfm?topnav=16
+    """
+    def __init__(self):
+        """
+
+        """
+        Data_File.__init__(self)
+
     def get_provisional_col(self, header):
         """
         Extract column names from provisional [1]_ data header format.
@@ -78,14 +97,13 @@ class HJ_Data:
         col = self._get_header_line(header, lineno=0, splitstr=",")
         return col
 
-    def load_csv_data(self, fname, col, skip_nrows=4, time_col=[0]):
+    def get_date_time_cols(self, col_names):
         """
-        Load comma delimited data into a Pandas DataFrame indexed by column 0
-        :param fname: str. Filepath to datafile
-        :param col: array of cloumn names
-        :param skip_nrows: number of rows to skip. Start reading from the bottom of the header.
+        Identify the column number or numbers containing date and time information
+        :param col_names: list of column names extracted from header
+        :return: list of column indexes that contain date and time information
         """
-        self.data = pd.read_csv(fname, skiprows=skip_nrows, names=col, parse_dates=True, index_col=time_col)
+        return [c for c in range(0, col_names.__len__(), 1) if 'date' in col_names[c].lower() or 'time' in col_names[c].lower() and not 'max'in col_names[c].lower() and not 'min'in col_names[c].lower() ]
 
     def load_provisional_data(self, fname):
         """
@@ -107,7 +125,43 @@ class HJ_Data:
         """
         self.read_header(fname)
         col = self.get_ms001_col(self.header)
-        self.load_csv_data(fname, col, skip_nrows=1, time_col=[6, 7])
+        time = self.get_date_time_cols(col)
+        self.load_csv_data(fname, col, skip_nrows=1, time_col=time)
+
+class SnotelData(Data_File):
+    """
+    Class to handle snotel data
+    """
+    def __init__(self):
+        """
+
+        :return:
+        """
+        Data_File.__init__(self)
+
+    def get_historic_snotel_col(self, header):
+        """
+        Extract column names from historic snotel[1]_ data header format.
+        :param header: array of header lines where each line is a single string.
+        :return: array of column names.
+
+        .. _[1] https://wcc.sc.egov.usda.gov/nwcc/tabget
+        """
+        col = self._get_header_line(header, 58, ',')
+        return col
+
+    def load_historic_snotel_data(self, fname):
+        """
+        Load datafile from historic snotel[1]_ into a Pandas DataFrame
+        :param fname: str. Filepath of snotel historic datafile
+
+        .. _[1] https://wcc.sc.egov.usda.gov/nwcc/tabget
+        """
+        self.read_header(fname, n_lines=59)
+        col = self.get_historic_snotel_col(self.header)
+        self.load_csv_data(fname, col, skip_nrows=59, time_col=[0])
+
+
 
 
 class MergeData:
@@ -148,9 +202,23 @@ class MergeData:
         df = self.merge_data(self.df, hja.data)
         self.df = df
 
+    def add_historic_snotel_data(self, filename):
+        """
+        Add a csv dataset historic snotel data to the master dataset.
+        :param filename: filepath to the historic snotel dataset
+
+        Uses self.merge_data to choose the correct method to create an outer
+        join based on DateTimeIndex.
+        """
+        snow = SnotelData()
+        snow.load_historic_snotel_data(filename)
+
+        df = self.merge_data(self.df, snow.data)
+        self.df = df
+
     def add_hobo_data(self, filename):
         """
-        Add a csvb dataset generated from .hobo files to the master dataset.
+        Add a csv dataset generated from .hobo files to the master dataset.
         :param filename: filepath to the hobo dataset
 
         Uses self.merge_data to choose the correct method to create an outer
@@ -215,6 +283,9 @@ class MergeData:
             The assumption made is that these columns contain empty or NaN v
             alues at these locations.
         """
+        if data1.empty:
+            return data2
+
         col1 = data1.columns
         col2 = data2.columns
 
@@ -245,7 +316,9 @@ class MergeData:
             # this pertains to partially overlapping column names
             df = pd.concat([data1, data2], join='outer', ignore_index=False)
 
-        return df
+        sort = df.sort_index()
+
+        return sort
 
     def is_any_columns_common(self, columns1, columns2):
         """
