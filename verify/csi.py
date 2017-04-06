@@ -163,8 +163,8 @@ class CampbellData:
         four_digit_format = []
         julian_day = []
         for i, r in col.iterrows():
-            t = int(r.Time)
-            j = int(r.JulianDay)
+            t = int(r[1])
+            j = int(r[0])
 
             len = str(t).__len__()
             HHMM = str(t)
@@ -174,6 +174,7 @@ class CampbellData:
 
             HHMM = '0000' if t == 2400 else HHMM
             j = j+1 if t == 2400 else j
+            j = 1 if j >365 else j
             four_digit_format.append(HHMM)
             julian_day.append(str(j))
 
