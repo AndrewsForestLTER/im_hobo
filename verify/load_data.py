@@ -305,11 +305,11 @@ class MergeData:
             and data2 only matches a subset of the column structures present in data1. However data2 fills in a
             timeseries gap, where no valued have been recorded, so data1 cannot be indexed by timestamp
             '''
-            if data1.loc[start:finish, common].empty or data1.loc[start:finish, common].shape[0] < data2[start:finish].shape[0]:
-                df = pd.concat([data1, data2], join='outer', ignore_index=False).sort_index()
-            else:
-                data1.loc[start:finish, common] = data2
-                df = data1
+            #if data1.loc[start:finish, common].empty or data1.loc[start:finish, common].shape[0] < data2[start:finish].shape[0]:
+            df = pd.concat([data1, data2], join='outer', ignore_index=False).sort_index()
+            #else:
+            #   data1[common] = data1[common].fillna(data2[common])
+            #   df = data1
 
         elif self.is_any_columns_common(col1, col2):
             # This means that this is NOT a subset of columns, it is NOT a different set of columns
