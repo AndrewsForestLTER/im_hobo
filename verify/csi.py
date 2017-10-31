@@ -165,6 +165,7 @@ class CampbellData:
         for i, r in col.iterrows():
             t = int(r[1])
             j = int(r[0])
+            y = int(r[2])
 
             len = str(t).__len__()
             HHMM = str(t)
@@ -173,8 +174,9 @@ class CampbellData:
                 len = HHMM.__len__()
 
             HHMM = '0000' if t == 2400 else HHMM
-            j = j+1 if t == 2400 else j
-            j = 1 if j >365 else j
+            ymax = 366 if (y % 4 == 0 and y % 100!= 0) or y % 400 == 0 else 365
+            j = j+1 if t == 2400 and j <= ymax else j
+            j = 1 if j > ymax and t == 2400 else j
             four_digit_format.append(HHMM)
             julian_day.append(str(j))
 
@@ -225,7 +227,7 @@ class CampbellData:
         data = self.data.ix[tbl_id]
 
         # convert Julian Day, Year, and 24 hour time into a time stamp and set as index
-        julian_day, time = self.get_cr10_to_HHMM(data[['JulianDay', 'Time']])
+        julian_day, time = self.get_cr10_to_HHMM(data[['JulianDay', 'Time', 'Year']])
         ts = pd.to_datetime(data.Year.astype(str) + ' ' + julian_day + ' ' + time, format='%Y %j %H%M')
         self.data = data.set_index(ts)
 
