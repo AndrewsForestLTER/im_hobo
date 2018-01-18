@@ -115,12 +115,13 @@ class HOBOdata:
 
     def get_csv_intensity_unit(self, header, lineno=-1):
         """
-
-        :param header:
-        :param lineno:
-        :return:
+        Get unit for sunlight intensity
+        :param header: array of header lines where each line is a single string
+        :param lineno: keyword argument. index of header array. Function operates on specified index. Default -1
+        :return: str defining units for sunlight intensity
         """
-
+        intensity = findall('(?i)(Lux|lum/ft\xc2\xb2)', header[lineno])
+        return intensity
 
     def get_csv_col(self, header, lineno=-1):
         """
@@ -272,12 +273,37 @@ class HOBOdata:
         if unit is 'C':
             self.data = self.temp_F_to_C(col) if not self.is_temp_celsius() else self.data
 
-    def is_intensity_lum(self):
+    def is_intensity_lux(self):
         """
+        Read units definition from header and return True if units are Lux
+        :return: Boolean. True if light intensity is recorded in Lux
+        """
+        units = self.get_csv_sunlight_unit(self.header)
+        return 'lux' == units[0].lower()
 
+    def intensity_lumft2_to_lux(self, intensity):
+        '''
+        Convert light intensity records from lumen ft-2 into Lux
+        :param intensity: an intensity value or list of intensity values in lumen ft-2
+        :return: an intensity or list of intensity values in Lux
+        '''
+
+        return intensity*10.76391
+
+    def format_intensity(self, col='Intensity', unit='Lux'):
+        '''
+        Format light intensity records in desired units
+        :param col: keyword argument. Column containing light intensity data. Defaults to Intensity
+        :param unit: keyword argument. str defining desired units. Default is 'Lux' (SI)
         :return:
-        """
-        self.get
+        '''
+
+        df = self.data
+        if unit.lower() == 'lux':
+            df[col] = self.intensity_lumft2_to_lux(df[col]) if not self.is_intensity_lux() else df[col]
+
+        self.data = df
+
 
 if __name__ == "__main__":
     # TEST HOBO LOAD
