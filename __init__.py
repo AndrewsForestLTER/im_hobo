@@ -3,4 +3,4 @@
 # created by: Greg Cohn
 __authors__ = 'Greg Cohn'
 __version__ = '0.2'
-__all__ = ["load_data", "met_func", "hobo", "csi"]
+__all__ = ["hobo"]
