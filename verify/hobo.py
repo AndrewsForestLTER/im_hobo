@@ -233,9 +233,9 @@ class HOBOdata:
         :param tz: a timezone as number of hours offset from Greenwhich Mean Time
         :return: Logical variable
         """
-        ts_str = str(tz)
+        #ts_str = str(tz)
         gmt = self.get_csv_GMT_offset(self.header)
-        return True if ts_str == gmt else False
+        return True if tz == gmt else False
 
     def format_timezone(self, tz=-8):
         """
@@ -262,7 +262,7 @@ class HOBOdata:
         :param temp: a temperature value or list of temperature values in degrees fahrenheit.
         :return: a temperature value or list of temperature values in degrees celsius
         """
-        return temp*(5./9.)-32
+        return (temp-32)*5./9.
 
     def format_temp(self, col='Temp', unit='C'):
         """
@@ -270,15 +270,20 @@ class HOBOdata:
         :param col: keyword argurment. Column containing temperature data. Defaults to 'Temp'
         :param unit: keyword argument. str defining desired unit. Default is 'C'
         """
-        if unit is 'C':
-            self.data = self.temp_F_to_C(col) if not self.is_temp_celsius() else self.data
+
+        df = self.data
+
+        if unit == 'C':
+            df[col] = self.temp_F_to_C(df[col]) if not self.is_temp_celsius() else df[col]
+
+        self.data = df
 
     def is_intensity_lux(self):
         """
         Read units definition from header and return True if units are Lux
         :return: Boolean. True if light intensity is recorded in Lux
         """
-        units = self.get_csv_sunlight_unit(self.header)
+        units = self.get_csv_intensity_unit(self.header)
         return 'lux' == units[0].lower()
 
     def intensity_lumft2_to_lux(self, intensity):
