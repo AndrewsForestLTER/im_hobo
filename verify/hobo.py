@@ -309,6 +309,29 @@ class HOBOdata:
 
         self.data = df
 
+    def format_QAQC_data(self, units='SI', tz=-8):
+        '''
+        Reformat the data using basic QAQC for SI or US units and time zone consistency regardless of daylight savings.
+        :param units: str. keyword argument. The desired system of units. Default is 'SI'.
+        :param tz: flt. keyword argument. The desired time zone as an offset from Greenwich Mean Time. Default is -8 (PST)
+        '''
+        if units.upper() == 'SI':
+            self.format_temp(col='Temp', unit='C')
+            self.format_intensity(col='Intensity', unit='Lux')
+
+        self.format_timezone(tz)
+
+    def reformat_HOBO_csv(self, fname, units='SI', tz=-8):
+        '''
+
+        :return:
+        '''
+        self.load_csv_data(fname)
+        self.format_QAQC_data(units=units, tz=tz)
+
+        csvname = fname.replace('.csv','_reformat.csv')
+        self.export_to_GCE_csv(csvname)
+
 
 if __name__ == "__main__":
     # TEST HOBO LOAD
