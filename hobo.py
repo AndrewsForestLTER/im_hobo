@@ -211,7 +211,7 @@ class HOBOdata:
        f.write(header_str)
        f.close()
 
-       df.to_csv(csvname, columns=export_col, mode='a')
+       df.to_csv(csvname, columns=export_col, mode='a', date_format='%m-%d-%Y %H:%M')
 
     def set_data_GMT_offset(self, hr_offset):
         """
@@ -309,17 +309,23 @@ class HOBOdata:
 
         self.data = df
 
-    def format_QAQC_data(self, units='SI', tz=-8):
+    def format_QAQC_data(self, units='SI', tz=-8, tstep=5):
         '''
         Reformat the data using basic QAQC for SI or US units and time zone consistency regardless of daylight savings.
         :param units: str. keyword argument. The desired system of units. Default is 'SI'.
         :param tz: flt. keyword argument. The desired time zone as an offset from Greenwich Mean Time. Default is -8 (PST)
+        :param intvl: int. keyword argument. The desired time step for the data in minutes. Default is 5
         '''
         if units.upper() == 'SI':
             self.format_temp(col='Temp', unit='C')
             self.format_intensity(col='Intensity', unit='Lux')
 
         self.format_timezone(tz)
+
+        # sync time to correct time intervals
+        df = self.data
+        sync = df.resample(str(tstep)+'T', closed='left').mean()
+        self.data = sync
 
     def reformat_HOBO_csv(self, fname, units='SI', tz=-8):
         '''
