@@ -33,6 +33,7 @@ class HOBOdata:
         self.header = []
         self.data = pd.DataFrame()
         self.filename = ''
+        self.col = []
 
     def read_csv_header(self, file_name):
         """
@@ -174,6 +175,7 @@ class HOBOdata:
         col = self.get_csv_col(self.header)
         date_col_i, date_col_n = self.get_timestamp_col(col)
         self.data = pd.read_csv(fname, parse_dates=date_col_i, skiprows=skip_nrows, names=col, index_col=date_col_n)
+        self.col = col
 
     def export_to_GCE_csv(self, csvname):
        """
@@ -182,8 +184,10 @@ class HOBOdata:
        :param col_line: a 0 based index identifying which line contains the column names.
        """
        df = self.data
-       export_col = ['Date', 'Temp', 'Intensity']
-       col = self.get_csv_col(self.header)
+       col = self.col
+       export_col = ['Date']
+       export_col.append('Temp') if 'Temp' in col else None
+       export_col.append('Intensity') if 'Intensity' in col else None
 
        """
        # map desired output to column index
@@ -315,9 +319,10 @@ class HOBOdata:
         :param units: str. keyword argument. The desired system of units. Default is 'SI'.
         :param tz: flt. keyword argument. The desired time zone as an offset from Greenwich Mean Time. Default is -8 (PST)
         '''
+        col = self.col
         if units.upper() == 'SI':
-            self.format_temp(col='Temp', unit='C')
-            self.format_intensity(col='Intensity', unit='Lux')
+            self.format_temp(col='Temp', unit='C') if 'Temp' in col else None
+            self.format_intensity(col='Intensity', unit='Lux') if 'Intensity' in col else None
 
         self.format_timezone(tz)
 
