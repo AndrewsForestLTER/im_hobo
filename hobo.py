@@ -39,7 +39,6 @@ class HOBOdata:
         """
         Read the header lines from the beginning of a file. Reads n_lines, and stores them as headers object.
         :param file_name: str. File path of file to be read.
-        :param n_lines: keyword argument. Number of lines in header. i.e. number of lines to read. Default to 2
         """
         self.filename = file_name
 
@@ -217,7 +216,7 @@ class HOBOdata:
        f.write(header_str)
        f.close()
 
-       df.to_csv(csvname, columns=export_col, mode='a')
+       df.to_csv(csvname, columns=export_col, mode='a', date_format='%m-%d-%Y %H:%M')
 
     def set_data_GMT_offset(self, hr_offset):
         """
@@ -253,6 +252,27 @@ class HOBOdata:
         self.set_data_GMT_offset(gmt_num)
         if not self.is_timezone_correct(tz):
             self.set_data_GMT_offset(tz)
+
+    def format_sync_timestep(self, n_min='5min'):
+        '''
+        Sync timestamps to a defined measurement interval. Timestamps are increased to the next defined interval.
+        :param n_min: str. keyword argument. Interval to round time stamps to. Default '5min'.
+
+        ..Note::
+            This uses the function ceil to round up to the next interval. The interval provided must match a known type
+            and contain both a number and a letter such as '1D' to round up to the next whole day.
+
+            See documentation for valid types [#]_
+
+        ..Warning::
+            This will change the index and timestamp of every record.
+
+        .. _[#] : https://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
+        '''
+
+        df = self.data.index
+        sync = df.ceil(n_min)
+        self.data.index = sync
 
     def is_temp_celsius(self):
         """
@@ -315,11 +335,17 @@ class HOBOdata:
 
         self.data = df
 
-    def format_QAQC_data(self, units='SI', tz=-8):
+    def format_QAQC_data(self, units='SI', tz=-8, tstep='5min'):
         '''
         Reformat the data using basic QAQC for SI or US units and time zone consistency regardless of daylight savings.
         :param units: str. keyword argument. The desired system of units. Default is 'SI'.
         :param tz: flt. keyword argument. The desired time zone as an offset from Greenwich Mean Time. Default is -8 (PST)
+        :param tstep. keyword argument. Interval to round time stamps to. Default '5min'.
+
+        ..Note::
+            tstep is input to the function HOBOdata.format_sync_timestep. This uses the function ceil to round up to the
+             next time interval. The interval provided must match a known type and contain both a number and a letter
+            such as '1D' to round up to the next whole day.
         '''
         col = self.col
         if units.upper() == 'SI':
@@ -327,6 +353,9 @@ class HOBOdata:
             self.format_intensity(col='Intensity', unit='Lux') if 'Intensity' in col else None
 
         self.format_timezone(tz)
+
+        # sync time to correct time intervals
+        self.format_sync_timestep(tstep)
 
     def reformat_HOBO_csv(self, fname, units='SI', tz=-8):
         '''
