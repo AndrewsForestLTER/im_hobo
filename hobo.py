@@ -38,7 +38,6 @@ class HOBOdata:
         """
         Read the header lines from the beginning of a file. Reads n_lines, and stores them as headers object.
         :param file_name: str. File path of file to be read.
-        :param n_lines: keyword argument. Number of lines in header. i.e. number of lines to read. Default to 2
         """
         self.filename = file_name
 
@@ -257,8 +256,12 @@ class HOBOdata:
             This uses the function ceil to round up to the next interval. The interval provided must match a known type
             and contain both a number and a letter such as '1D' to round up to the next whole day.
 
+            See documentation for valid types [#]_
+
         ..Warning::
             This will change the index and timestamp of every record.
+
+        .. _[#] : https://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
         '''
 
         df = self.data.index
@@ -331,7 +334,7 @@ class HOBOdata:
         Reformat the data using basic QAQC for SI or US units and time zone consistency regardless of daylight savings.
         :param units: str. keyword argument. The desired system of units. Default is 'SI'.
         :param tz: flt. keyword argument. The desired time zone as an offset from Greenwich Mean Time. Default is -8 (PST)
-        :param str. keyword argument. Interval to round time stamps to. Default '5min'.
+        :param tstep. keyword argument. Interval to round time stamps to. Default '5min'.
 
         ..Note::
             tstep is input to the function HOBOdata.format_sync_timestep. This uses the function ceil to round up to the
