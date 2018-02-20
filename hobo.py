@@ -183,11 +183,13 @@ class HOBOdata:
        :param csvname: str. Filepath to output csv file
        :param col_line: a 0 based index identifying which line contains the column names.
        """
-       df = self.data
        col = self.col
        export_col = ['Date']
        export_col.append('Temp') if 'Temp' in col else None
        export_col.append('Intensity') if 'Intensity' in col else None
+       data = self.data
+       df = data.dropna(subset=export_col[1:])
+       data = None
 
        """
        # map desired output to column index
