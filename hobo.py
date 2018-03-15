@@ -183,23 +183,25 @@ class HOBOdata:
        :param col_line: a 0 based index identifying which line contains the column names.
        """
        col = self.col
+       '''
+       export column is important for oddball HOBO settings that split timestamps btwn columns and add erroneous columns
+        such as:
+       ..Example::
+            '#',
+             'Date',
+             'Time',
+             'Temp',
+             'Intensity',
+             'Coupler Attached (LGR S/N: 10335619)',
+             'Stopped (LGR S/N: 10335619)',
+             'End Of File (LGR S/N: 10335619)'
+       '''
        export_col = ['Date']
        export_col.append('Temp') if 'Temp' in col else None
        export_col.append('Intensity') if 'Intensity' in col else None
        data = self.data
        df = data.dropna(subset=export_col[1:])
        data = None
-
-       """
-       # map desired output to column index
-       export_col_index = {'#': 'RecNum'}
-       for c in col:
-           for ec in export_col:
-               if ec in c:
-                   export_col_index[c]=ec
-
-        df.rename(columns=export_col_index, inplace=True)
-       """
 
        df['Date'] = df.index
        df.set_index(keys='#', drop=True, inplace=True)
