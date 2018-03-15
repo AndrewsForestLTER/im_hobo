@@ -170,7 +170,7 @@ class HOBOdata:
         """
 
         self.read_csv_header(fname)
-        skip_nrows = self.header.__len__()
+        skip_nrows = self.header.__len__() + 1
         col = self.get_csv_col(self.header)
         date_col_i, date_col_n = self.get_timestamp_col(col)
         self.data = pd.read_csv(fname, parse_dates=date_col_i, skiprows=skip_nrows, names=col, index_col=date_col_n)
