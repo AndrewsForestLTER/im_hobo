@@ -3,10 +3,10 @@ import subprocess
 from os import listdir
 from datetime import datetime
 
-fdir = 'E:/workspace/HOBO_PROCESSING' #'c:/HOBO_DROP/'
+fdir = 'c:/HOBO_DROP/'
 
 date = datetime.now().strftime('%Y%m%d_%H%M%S')
-log = fdir + 'hobo_qaqc_' + date + '.log'
+log = fdir + '/hobo_qaqc_' + date + '.log'
 
 rmot2locl = fdir + '/MET_hobo/bat/mir_hobo_drop.bat'
 locl2rmot = fdir + '/MET_hobo/bat/mov_hobo_drop.bat'
