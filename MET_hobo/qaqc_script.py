@@ -1,6 +1,7 @@
 import hobo
 import subprocess
-from os import listdir
+from os import listdir, mkdir
+from os.path import isdir
 from datetime import datetime
 
 
@@ -24,6 +25,13 @@ rmot2locl = fdir + '/MET_hobo/bat/mir_hobo_drop.bat'
 locl2rmot = fdir + '/MET_hobo/bat/mov_hobo_drop.bat'
 
 csv = fdir + '/_csv/'
+m = mkdir(csv) if not isdir(csv) else False
+processed = fdir + '/_processed/'
+"""
+..To Do::
+    In update to >=3.2, mkdirs(exist_ok=True)
+"""
+m = mkdir(processed) if not isdir(processed) else False
 
 logs = []
 
@@ -44,7 +52,7 @@ for f in files:
         skip.append(f + '\n')
         continue
     q = hobo.HOBOdata()
-    q.reformat_HOBO_csv(csv+f)
+    q.reformat_HOBO_csv(csv+f, processed+f)
     q = None
 
     files[i] += '\n'
@@ -54,6 +62,8 @@ end = datetime.now().strftime('%H:%M:%S')
 
 # Record log of all file processing
 logs.extend('\n\n----------------------------\nStart csv reformat- %s\n----------------------------\n'%start)
+logs.extend('---------Read from %s\n'%csv)
+logs.extend('---------Ouput to  %s\n'%processed)
 logs.extend(files)
 logs.extend('\n\n---------------Skip csv reformat---------------\n')
 logs.extend(skip)

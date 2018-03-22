@@ -5,8 +5,8 @@ REM --------------------------------GET SYSTEM DATE-----------------------------
 SET TODAY=%date%
 ECHO It's %TODAY% today
 :: set HOBOMOV=\\server\REFSTANDS\
-set HOBOMOV=C:\HOBO_DROP\_csv\test
-set DIR=C:\HOBO_DROP\_csv
+set HOBOMOV=C:\HOBO_DROP\_fakes_server\
+set DIR=C:\HOBO_DROP\_processed
 ECHO Moving data from _csv to destination dir
 REM ---------------------------------------------------------------------------------------------
 

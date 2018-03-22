@@ -359,15 +359,19 @@ class HOBOdata:
         # sync time to correct time intervals
         self.format_sync_timestep(tstep)
 
-    def reformat_HOBO_csv(self, fname, units='SI', tz=-8, tstep='5min'):
+    def reformat_HOBO_csv(self, infname, outfname=None, units='SI', tz=-8, tstep='5min'):
         '''
 
         :return:
         '''
-        self.load_csv_data(fname)
+        self.load_csv_data(infname)
         self.format_QAQC_data(units=units, tz=tz, tstep=tstep)
 
-        csvname = fname.replace('.csv','_reformat.csv')
+        if outfname is None:
+            csvname = infname.replace('.csv', '_reformat.csv')
+        else:
+            csvname = outfname
+
         self.export_to_GCE_csv(csvname)
 
 
