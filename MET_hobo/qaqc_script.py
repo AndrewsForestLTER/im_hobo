@@ -3,10 +3,22 @@ import subprocess
 from os import listdir
 from datetime import datetime
 
-fdir = 'c:/HOBO_DROP/'
+
+# load config file as one formatted string
+with open('../file_path.config') as f:
+    lines = f.read()
+
+# compile file into pyc (essentially a local .pyc)
+pyc = compile(lines, '<string>', 'exec')
+# use exec as function for forward compatibility with 3.x (2.x exec can be a statement)
+# this process improves speed %12
+exec(pyc)
+
+
+fdir = dir_local_processing
 
 date = datetime.now().strftime('%Y%m%d_%H%M%S')
-log = fdir + '/hobo_qaqc_' + date + '.log'
+log = fdir + 'logs/hobo_qaqc_' + date + '.log'
 
 rmot2locl = fdir + '/MET_hobo/bat/mir_hobo_drop.bat'
 locl2rmot = fdir + '/MET_hobo/bat/mov_hobo_drop.bat'
