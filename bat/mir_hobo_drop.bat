@@ -13,4 +13,4 @@ REM ----------------------------------------------------------------------------
 
 rem mirror files on remote server to stoic local drive
 If Not Exist %LOCALDIR% MD %LOCALDIR%
-robocopy %REMDIR%  %LOCALDIR% /e /MIR /TEE /xf *.bat *.tmp /log+:logs.log
+robocopy %REMDIR%  %LOCALDIR% /e /MIR /TEE /xf *.bat *.tmp
