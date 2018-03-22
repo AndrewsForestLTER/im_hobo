@@ -18,7 +18,7 @@ exec(pyc)
 fdir = dir_local_processing
 
 date = datetime.now().strftime('%Y%m%d_%H%M%S')
-log = fdir + 'logs/hobo_qaqc_' + date + '.log'
+log = fdir + '/logs/hobo_qaqc_' + date + '.log'
 
 rmot2locl = fdir + '/MET_hobo/bat/mir_hobo_drop.bat'
 locl2rmot = fdir + '/MET_hobo/bat/mov_hobo_drop.bat'
@@ -65,7 +65,7 @@ files = None
 
 
 # Copy reformated files from local machine back to server
-proc = subprocess.Popen(rmot2locl, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+proc = subprocess.Popen(locl2rmot, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 logs.extend(proc.communicate())
 
 with open(log, 'a+') as f:
