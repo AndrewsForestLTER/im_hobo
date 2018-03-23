@@ -43,28 +43,34 @@ logs.extend(proc.communicate())
 
 # Reformat and QAQC all CSV files
 start = datetime.now().strftime('%H:%M:%S')
-files = listdir(csv)
+fdir = listdir(csv)
+fproc = []
 skip = []
-i = 0
-for f in files:
+for f in fdir:
     if not f.endswith('.csv'):
-        files.pop(i)
         skip.append(f + '\n')
         continue
     q = hobo.HOBOdata()
     q.reformat_HOBO_csv(csv+f, processed+f)
     q = None
 
-    files[i] += '\n'
-    i += 1
+    fproc.append(f + '\n')
+
 end = datetime.now().strftime('%H:%M:%S')
+skip_count = skip.__len__()
+fproc_count = fproc.__len__()
+fdir_count = fdir.__len__()
+
 
 
 # Record log of all file processing
 logs.extend('\n\n----------------------------\nStart csv reformat- %s\n----------------------------\n'%start)
 logs.extend('---------Read from %s\n'%csv)
 logs.extend('---------Ouput to  %s\n'%processed)
-logs.extend(files)
+logs.extend('--------- %s files total\n'%fdir_count)
+logs.extend('--------- %s files processed\n'%fproc_count)
+logs.extend('--------- %s files skipped\n'%skip_count)
+logs.extend(fproc)
 logs.extend('\n\n---------------Skip csv reformat---------------\n')
 logs.extend(skip)
 time = datetime.now().strftime('%H:%M:%S')
