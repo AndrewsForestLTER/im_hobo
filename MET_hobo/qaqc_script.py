@@ -1,11 +1,14 @@
 import hobo
 import subprocess
-from os import listdir, mkdir
+from os import listdir, makedirs
 from os.path import isdir
 from datetime import datetime
+import zipfile as zp
 
+date = datetime.now().strftime('%Y%m%d_%H%M%S')
 
 # load config file as one formatted string
+# partial path is a weak point and assumes that pwd is ./MET_hobo/MET_hobo
 with open('../file_path.config') as f:
     lines = f.read()
 
@@ -16,22 +19,23 @@ pyc = compile(lines, '<string>', 'exec')
 exec(pyc)
 
 
-fdir = dir_local_processing
+wdir = dir_local_processing
 
-date = datetime.now().strftime('%Y%m%d_%H%M%S')
-log = fdir + '/logs/hobo_qaqc_' + date + '.log'
+rmot2locl = wdir + '/MET_hobo/bat/mir_hobo_drop.bat'
+locl2rmot = wdir + '/MET_hobo/bat/mov_hobo_drop.bat'
 
-rmot2locl = fdir + '/MET_hobo/bat/mir_hobo_drop.bat'
-locl2rmot = fdir + '/MET_hobo/bat/mov_hobo_drop.bat'
 
-csv = fdir + '/_csv/'
-m = mkdir(csv) if not isdir(csv) else False
-processed = fdir + '/_processed/'
-"""
-..To Do::
+def mkdirs_exist_ok(dpath):
+    """
+    ..To Do::
     In update to >=3.2, mkdirs(exist_ok=True)
-"""
-m = mkdir(processed) if not isdir(processed) else False
+    """
+    makedirs(dpath) if not isdir(dpath) else False
+
+csv = wdir + '/_csv/'
+mkdirs_exist_ok(csv)
+processed = wdir + '/_processed/'
+mkdirs_exist_ok(processed)
 
 logs = []
 
@@ -84,5 +88,33 @@ files = None
 proc = subprocess.Popen(locl2rmot, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 logs.extend(proc.communicate())
 
+
+'''
++..To do::
++    This is clunky...it is adding files to a zip one at a time. Ideally, it takes the proj+site, and grabs all
++    applicable files at  once and zips...but without dealing with sites that don't have files.
++'''
+def get_projname(f):
+    name_list = [map_fname2dir[k] for k in map_fname2dir.keys() if k in f.split('_')[0]]
+    return name_list[0] if name_list else 'UnknownProject'
+
+for f in skip:
+    proj = get_projname(f)
+    hobo = f[:-1]
+    hobo_path = csv + hobo
+    if not proj or not hobo.endswith('.hobo'):
+        continue
+    site = f.split('_')[0]
+
+
+    zip_path = dir_final_storage + '/' + proj + '/' + site + '/HOBO/archive/'
+    mkdirs_exist_ok(zip_path)
+
+    fzip = zip_path + site + '.zip'
+    with zp.ZipFile(fzip, 'a') as zhobo:
+        zhobo.write(hobo_path, hobo, compress_type=zp.ZIP_DEFLATED)
+
+log = wdir + '/logs/hobo_qaqc_' + date + '.log'
+mkdirs_exist_ok(wdir + '/logs')
 with open(log, 'a+') as f:
     f.writelines(logs)
