@@ -1,7 +1,7 @@
 import hobo_qaqc, subprocess
 from sys import platform
 from os import listdir, makedirs
-from os.path import isdir, basename, abspath
+from os.path import isdir, basename, isfile, abspath
 from datetime import datetime
 import zipfile as zp
 from numpy import unique
@@ -115,14 +115,17 @@ class FileHandling:
 
         sites = []
         for f in data_files:
-            if isdir(fdata + f):
+            # initially, file list does not contain any path information. As full file paths are appended to the list
+            # file names have full paths and do not need additional path information
+            if isdir(fdata + f) or isdir(f):
                 # add files from subdirectories
-                oswalk = [fdata + f + sep + f1 for f1 in listdir(fdata + f)]
+                f_path = f if isdir(f) else fdata + f
+                oswalk = [f_path + sep + f1 for f1 in listdir(f_path)]
                 data_files.extend(oswalk)
             else:
                 # strip file path and extension, and read first segment from file name. E.g. RS05 from path/RS05_*.zip
                 sites.append(f.split(sep)[-1].split('_')[0].split('.')[0])
-                fp = abspath(f)
+                fp = abspath(fdata + f if not isfile(f) else f)
                 if f.endswith('.csv'):
                     index_files['.csv'].append(fp)
                 elif f.endswith('.hobo'):
@@ -142,7 +145,6 @@ class FileHandling:
         :return:
         """
         # Reformat and QAQC all CSV files
-        csv_dir = self.data_dir
         proc_dir = self.proc_dir
 
         fcsv = self.files['.csv']
@@ -165,7 +167,6 @@ class FileHandling:
         then use glob.glob* to copy all of a site at once
         :return:
         """
-        hobo_dir = self.data_dir
         proc_dir = self.proc_dir
         sep = self.sep
         date = self.start_date
