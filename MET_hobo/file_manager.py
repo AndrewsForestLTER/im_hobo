@@ -191,9 +191,12 @@ class FileHandling:
         return zproc, fhobo_count, zproc_count
 
 
-    def copy_to_final_dir(self):
+    def copy_to_final_dir(self, file_list, subdir, loc):
         """
 
+        :param file_list:
+        :param subdir:
+        :param loc:
         :return:
         """
 
@@ -201,24 +204,26 @@ class FileHandling:
         fnc_mkdirs_exists = self._mkdirs_exist_ok
         cp = self.copy
 
-        proc_dir = self.proc_dir
         fin_dir = self.final_dir
         sep = self.sep
 
-        fsite = self.files['sites']
         logs = []
-        for s in fsite:
+        fproc = []
+        for s in file_list:
             prj = fnc_get_prj(s)
 
-            storage = fin_dir + sep + prj + sep + s + '/hobo'
+            storage = fin_dir + sep + prj + sep + s + subdir
             fnc_mkdirs_exists(storage)
 
             # Cut files from local machine (or processing folder) to final storage (server)
-            cmd = '%s %s %s %s %s'%(cp['cmd'], proc_dir, storage, '"%s*"'%(s), cp['opt_cut_files'])
+            cmd = '%s %s %s %s %s'%(cp['cmd'], loc, storage, '"%s*"'%(s), cp['opt_cut_files'])
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             logs.extend(proc.communicate())
 
+            fproc.append(s + '\n')
+
         self.logs.extend(logs)
+        return fproc
 
 
     def write_log(self):
@@ -262,17 +267,31 @@ class FileHandling:
         self.index_files()
 
         start = datetime.now().strftime('%H:%M:%S')
+        # QAQC .csv files
         c_proc, c_count, cproc_count = self.qaqc_csv()
         end = datetime.now().strftime('%H:%M:%S')
         self.logs.extend(log_chg('csv reformat', start, end, self.data_dir, self.proc_dir, c_count, cproc_count, c_proc))
 
         start = datetime.now().strftime('%H:%M:%S')
+        # ZIP .hobo files
         h_proc, h_count, hproc_count = self.zip_hobo_files()
         end = datetime.now().strftime('%H:%M:%S')
         self.logs.extend(log_chg('archive .hobo in ZIP',  start, end, self.data_dir, self.proc_dir, h_count, hproc_count, h_proc))
 
-        self.logs.extend('\n\n Start copy  DATA TO FINAL STORAGE\n***********************************************\n\n')
-        self.copy_to_final_dir()
+        self.logs.append('\n\n Start copy  DATA TO FINAL STORAGE\n***********************************************\n\n')
+        _ = self.copy_to_final_dir(self.files['sites'], '/hobo', self.proc_dir)
+
+        self.logs.append('\n\n Start copy  UNRECOGNIZED FILE .EXT\n***********************************************\n\n')
+        if self.files['unk_ext'] != []:
+            fproc = self.copy_to_final_dir(self.files['unk_ext'], '/UNK_FILE', self.data_dir)
+            self.logs.extend(fproc)
+        else:
+            self.logs.append('NONE')
+
+        if self.files['.log'] != []:
+            fproc = self.copy_to_final_dir(self.files['log'], '', self.wdir + '/logs')
+            self.logs.extend(fproc)
+
         self.write_log()
 
 
