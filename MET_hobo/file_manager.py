@@ -1,10 +1,12 @@
 import hobo_qaqc, subprocess
+# possible change to os.name to decrease dependencies
 from sys import platform
-from os import listdir, makedirs
+from os import listdir, makedirs, remove
 from os.path import isdir, basename, isfile, abspath
 from datetime import datetime
 import zipfile as zp
 from numpy import unique
+from shutil import rmtree
 
 class FileHandling:
     """
@@ -225,6 +227,53 @@ class FileHandling:
         self.logs.extend(logs)
         return fproc
 
+    def del_temp_folders(self):
+        '''
+        This is to wipe temporary processing folders in the working directory. The convention maintained by this module
+        is that all temp folders have the "_" prefix
+
+        ..Warning::
+            This uses destructive methods which will erase any and all contents of the target directory and any sub-
+            directories within.
+
+            shutil.rmtree()
+
+        :return:
+        '''
+
+        self.logs.extend(['\n\nDeleting Temporary DIR from Working DIR\n************************************\n',
+                          '%s\n%s\n' % (self.proc_dir, self.data_dir)])
+        rmtree(self.proc_dir)
+        rmtree(self.data_dir)
+
+    def del_files_frm_srcdir(self):
+        '''
+        This is to wipe all files from the src_dir, defined in file_path.config as dir_source_files. All files and sub-
+        folders in this directory will be wiped.
+
+        ..Warning::
+            This uses destructive methods which will erase any and all contents of the target directory and any sub-
+            directories within.
+
+            shutil.rmtree()
+
+        :return:
+        '''
+        sdir = self.src_dir
+
+        if sdir == self.final_dir:
+            self.logs.extend('WARNING!!!: Source direcotry is same as final directory. Directory clean aborted\n')
+
+        f_wipe = []
+        for f in listdir(sdir):
+            if isfile(sdir + f):
+                remove(sdir + f)
+            elif isdir(sdir + f):
+                rmtree(sdir + f)
+
+            f_wipe.append(f + '\n')
+
+        return f_wipe
 
     def write_log(self):
         """
@@ -289,9 +338,21 @@ class FileHandling:
             self.logs.append('NONE')
 
         if self.files['.log'] != []:
-            fproc = self.copy_to_final_dir(self.files['log'], '', self.wdir + '/logs')
+            fproc = self.copy_to_final_dir(['log'], '', self.data_dir)
             self.logs.extend(fproc)
 
+        # Clean directories
+        self.del_temp_folders()
+        start = datetime.now().strftime('%H:%M:%S')
+        f_wipe = self.del_files_frm_srcdir()
+        end = datetime.now().strftime('%H:%M:%S')
+        warn = '!!WARNING!! WIPING ORIGINAL DATA DIRECTORY\n************************************\
+                \n--------- Files/Dir Wiped %s\n' % f_wipe.__len__()
+        self.logs.extend(warn)
+        self.logs.extend(f_wipe)
+
+
+        # Write log
         self.write_log()
 
 
