@@ -301,13 +301,13 @@ class FileHandling:
 
         :return:
         """
-        wdir = self.wdir
+        fin_dir = self.final_dir
         date = self.start_date
         logs = self.logs
 
-        self._mkdirs_exist_ok(wdir + '/logs')
+        self._mkdirs_exist_ok(fin_dir + '/logs')
 
-        flog = wdir + '/logs/hobo_qaqc_' + date + '.log'
+        flog = fin_dir + '/logs/hobo_qaqc_' + date + '.log'
         with open(flog, 'a') as f:
             f.writelines(logs)
 
@@ -325,7 +325,7 @@ class FileHandling:
                 \n---------Ouput to  {dir_to}\
                 \n--------- {tot_cnt} files total\
                 \n--------- {chg_cnt} files processed\
-                """.format(**locals())
+                \n""".format(**locals())
                   ]
 
             log.extend(f_list)
@@ -372,7 +372,7 @@ class FileHandling:
             self.logs.append('NONE')
 
         if self.files['.log'] != []:
-            fproc = self.copy_to_final_dir(['log'], '', self.data_dir)
+            fproc = self.copy_to_final_dir(self.files['.log'], 'logs', self.data_dir)
             self.logs.extend(fproc)
 
         # Clean directories
