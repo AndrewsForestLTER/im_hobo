@@ -219,7 +219,15 @@ class FileHandling:
         for s in file_list:
             prj = fnc_get_prj(s)
 
+            '''
+            ..Warning::
+                The following line was edited per bitbucket issue #4_ to create a simpler file storage where file
+                movement is more manually controlled.
+
+            .. _https://bitbucket.org/hjandrews/met_hobo/issues/10/task-request-simplify-file-management
             storage = fin_dir + sep + prj + sep + s + subdir
+            '''
+            storage = fin_dir + sep + subdir
             fnc_mkdirs_exists(storage)
 
             # Cut files from local machine (or processing folder) to final storage (server)
@@ -336,7 +344,7 @@ class FileHandling:
 
         # Copy files to final storage location
         self.logs.append('\n\n Start copy  DATA TO FINAL STORAGE\n***********************************************\n\n')
-        _ = self.copy_to_final_dir(self.files['sites'], '/hobo', self.proc_dir)
+        _ = self.copy_to_final_dir(self.files['sites'], '/_bulk_exp_clean', self.proc_dir)
 
         # Store any files that are not recognized as data files
         self.logs.append('\n\n Start copy  UNRECOGNIZED FILE .EXT\n***********************************************\n\n')
