@@ -7,6 +7,7 @@ from datetime import datetime
 import zipfile as zp
 from numpy import unique
 from shutil import rmtree
+import atexit
 
 class FileHandling:
     """
@@ -64,6 +65,9 @@ class FileHandling:
         processed = wdir + '_processed/'
         self._mkdirs_exist_ok(processed)
         self.proc_dir = processed
+
+        # whenever, the process exits (errors/complete) write log
+        atexit.register(self.write_log)
 
 
     def _mkdirs_exist_ok(self, dpath):
@@ -388,12 +392,6 @@ class FileHandling:
         self.logs.extend(f_wipe)
         '''
 
-
-        # Write log
-        self.write_log()
-
-
 if __name__ == '__main__':
     mng = FileHandling()
     mng.manage()
-    mng.write_log()
