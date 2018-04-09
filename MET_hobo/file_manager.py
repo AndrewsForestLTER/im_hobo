@@ -14,6 +14,10 @@ class FileHandling:
     """
     def __init__(self):
         """
+        ..To Do::
+            possible change from sys.platform to os.name to decrease package dependencies
+
+            possible change from shutil.rmtrees to os.remove os.rmdir
 
         :return:
         """
@@ -87,6 +91,7 @@ class FileHandling:
         """
         logs = ['Process CSV output from HOBOWARE for time zone, timestep, and units\n',
                 '=====================================================================\n',
+                'MET_hobo module\n',
                 'Date: %s\n'%self.start_date]
         self.logs.extend(logs)
 
@@ -298,38 +303,42 @@ class FileHandling:
         """
 
         def log_chg(proc, start, end, dir_frm, dir_to, tot_cnt, chg_cnt, f_list):
-            head ="""\n\n----------------------------\nStart %s - %s\n----------------------------
-            ---------Read from %s
-            ---------Ouput to  %s
-            --------- %d files total
-            --------- %d files processed
-            """
+            log =[
+                """\n\n----------------------------\nStart {proc} - {start}\n----------------------------\
+                \n---------Read from {dir_frm}\
+                \n---------Ouput to  {dir_to}\
+                \n--------- {tot_cnt} files total\
+                \n--------- {chg_cnt} files processed\
+                """.format(**locals())
+                  ]
 
-            tail = '\n\n----------------------------\nEnd %s- %s\n----------------------------\n'
-            log = [head%(proc, start, dir_frm, dir_to, tot_cnt, chg_cnt)]
             log.extend(f_list)
-            log.extend(tail%(proc, end))
+            tail = '\n----------------------------\nEnd %s- %s\n----------------------------\n'
+            log.append(tail%(proc, end))
             return log
 
+        # Copy files to a working directory and index file types and study sites
         self.set_log_header()
         self.copy_to_wdir()
         self.index_files()
 
+        # Run QAQC and log results
         start = datetime.now().strftime('%H:%M:%S')
-        # QAQC .csv files
         c_proc, c_count, cproc_count = self.qaqc_csv()
         end = datetime.now().strftime('%H:%M:%S')
         self.logs.extend(log_chg('csv reformat', start, end, self.data_dir, self.proc_dir, c_count, cproc_count, c_proc))
 
+        # ZIP any .hobo files into an archive
         start = datetime.now().strftime('%H:%M:%S')
-        # ZIP .hobo files
         h_proc, h_count, hproc_count = self.zip_hobo_files()
         end = datetime.now().strftime('%H:%M:%S')
         self.logs.extend(log_chg('archive .hobo in ZIP',  start, end, self.data_dir, self.proc_dir, h_count, hproc_count, h_proc))
 
+        # Copy files to final storage location
         self.logs.append('\n\n Start copy  DATA TO FINAL STORAGE\n***********************************************\n\n')
         _ = self.copy_to_final_dir(self.files['sites'], '/hobo', self.proc_dir)
 
+        # Store any files that are not recognized as data files
         self.logs.append('\n\n Start copy  UNRECOGNIZED FILE .EXT\n***********************************************\n\n')
         if self.files['unk_ext'] != []:
             fproc = self.copy_to_final_dir(self.files['unk_ext'], '/UNK_FILE', self.data_dir)
