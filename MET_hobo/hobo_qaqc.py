@@ -25,6 +25,11 @@ class HOBOdata:
     """
     Load and process data from HOBO_ loggers produced by the ONSET company.
 
+    Handles csv files exported from the HoboWare program. The native format for HOBO loggers is a .hobo file. This
+    proprietary binary file is not handled here and must be converted to a csv.
+
+    This class syncs timesteps, checks time zones, and units, and converts where needed.
+
     .. _HOBO : http://www.onsetcomp.com/hobo-data-loggers
     """
     def __init__(self):
@@ -43,9 +48,12 @@ class HOBOdata:
         self.filename = file_name
 
         n_lines = self.get_header_nlines(file_name)
-        f = open(file_name)
-        header = [f.next() for l in range(0, n_lines)]
-        f.close()
+        if n_lines >0:
+            with open(file_name) as f:
+                header = [f.next() for l in range(0, n_lines)]
+        elif n_lines == 0:
+            raise ValueError('This file does not have a header that matches a recognized HOBOWARE format\
+            \nheader n_lines == 0')
 
         self.header = header
 
