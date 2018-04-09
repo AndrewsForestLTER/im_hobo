@@ -221,7 +221,7 @@ class FileHandling:
 
             '''
             ..Warning::
-                The following line was edited per bitbucket issue #4_ to create a simpler file storage where file
+                The following line was edited per bitbucket issue #10_ to create a simpler file storage where file
                 movement is more manually controlled.
 
             .. _https://bitbucket.org/hjandrews/met_hobo/issues/10/task-request-simplify-file-management
@@ -231,7 +231,7 @@ class FileHandling:
             fnc_mkdirs_exists(storage)
 
             # Cut files from local machine (or processing folder) to final storage (server)
-            cmd = '%s %s %s %s %s'%(cp['cmd'], loc, storage, '"%s*"'%(s), cp['opt_cut_files'])
+            cmd = '%s %s %s %s %s'%(cp['cmd'], loc, storage, '"%s*"'%(basename(s)), cp['opt_cut_files'])
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             logs.extend(proc.communicate())
 
@@ -273,16 +273,20 @@ class FileHandling:
         :return:
         '''
         sdir = self.src_dir
+        sep = self.sep
 
         if sdir == self.final_dir:
             self.logs.extend('WARNING!!!: Source direcotry is same as final directory. Directory clean aborted\n')
 
         f_wipe = []
         for f in listdir(sdir):
-            if isfile(sdir + f):
-                remove(sdir + f)
-            elif isdir(sdir + f):
-                rmtree(sdir + f)
+            f_name = sdir + sep + f
+            if isfile(f_name):
+                remove(f_name)
+            elif isdir(f_name):
+                rmtree(f_name)
+            else:
+                f = None
 
             f_wipe.append(f + '\n')
 
@@ -336,20 +340,29 @@ class FileHandling:
         end = datetime.now().strftime('%H:%M:%S')
         self.logs.extend(log_chg('csv reformat', start, end, self.data_dir, self.proc_dir, c_count, cproc_count, c_proc))
 
+        '''
+        ..Warning::
+            The following feature was disabled per bitbucket issue #10_ to create a simpler file storage where file
+            movement is more manually controlled.
+
+        .. _https://bitbucket.org/hjandrews/met_hobo/issues/10/task-request-simplify-file-management
+
         # ZIP any .hobo files into an archive
         start = datetime.now().strftime('%H:%M:%S')
         h_proc, h_count, hproc_count = self.zip_hobo_files()
         end = datetime.now().strftime('%H:%M:%S')
         self.logs.extend(log_chg('archive .hobo in ZIP',  start, end, self.data_dir, self.proc_dir, h_count, hproc_count, h_proc))
+        '''
+        self.files['unk_ext'].extend(self.files['.hobo'])
 
         # Copy files to final storage location
         self.logs.append('\n\n Start copy  DATA TO FINAL STORAGE\n***********************************************\n\n')
-        _ = self.copy_to_final_dir(self.files['sites'], '/_bulk_exp_clean', self.proc_dir)
+        _ = self.copy_to_final_dir(self.files['sites'], '_bulk_exp_clean', self.proc_dir)
 
         # Store any files that are not recognized as data files
         self.logs.append('\n\n Start copy  UNRECOGNIZED FILE .EXT\n***********************************************\n\n')
         if self.files['unk_ext'] != []:
-            fproc = self.copy_to_final_dir(self.files['unk_ext'], '/UNK_FILE', self.data_dir)
+            fproc = self.copy_to_final_dir(self.files['unk_ext'], 'UNK_FILE', self.data_dir)
             self.logs.extend(fproc)
         else:
             self.logs.append('NONE')
@@ -360,6 +373,12 @@ class FileHandling:
 
         # Clean directories
         self.del_temp_folders()
+        '''
+        ..Warning::
+            The following feature was disabled per bitbucket issue #10_ to create a simpler file storage where file
+            movement is more manually controlled.
+
+        .. _https://bitbucket.org/hjandrews/met_hobo/issues/10/task-request-simplify-file-management
         start = datetime.now().strftime('%H:%M:%S')
         f_wipe = self.del_files_frm_srcdir()
         end = datetime.now().strftime('%H:%M:%S')
@@ -367,6 +386,7 @@ class FileHandling:
                 \n--------- Files/Dir Wiped %s\n' % f_wipe.__len__()
         self.logs.extend(warn)
         self.logs.extend(f_wipe)
+        '''
 
 
         # Write log
