@@ -43,6 +43,8 @@ class FileHandling:
 
         self.map_fname2dir = map_fname2dir
 
+        self.time_step = time_step
+
         self.logs = []
 
         self.files = {'.hobo':[],
@@ -162,7 +164,7 @@ class FileHandling:
         fproc = []
         for f in fcsv:
             q = hobo_qaqc.HOBOdata()
-            q.reformat_HOBO_csv(f, proc_dir + basename(f))
+            q.reformat_HOBO_csv(f, proc_dir + basename(f), tstep=self.time_step)
             q = None
 
             fproc.append(f + '\n')
