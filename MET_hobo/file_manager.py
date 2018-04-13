@@ -259,11 +259,16 @@ class FileHandling:
 
         :return:
         '''
-
+        output = self.proc_dir
         self.logs.extend(['\n\nDeleting Temporary DIR from Working DIR\n************************************\n',
                           '%s\n%s\n' % (self.proc_dir, self.data_dir)])
-        rmtree(self.proc_dir)
         rmtree(self.data_dir)
+
+        if listdir(output) == []:
+            # All processed files output from MET_hobo.hobo_qaqc should be transferred to final storage.
+            rmtree(output)
+        else:
+            self.logs.append('!!!WARNING!!! %s is not empty!\nABORT DIRECTORY CLEAN\n'%output)
 
     def del_files_frm_srcdir(self):
         '''
