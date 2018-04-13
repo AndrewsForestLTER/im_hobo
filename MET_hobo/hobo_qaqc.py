@@ -13,9 +13,10 @@ def _get_header_line(header, lineno):
         """
         Private function. Breaks header line into individual comma delimited parts and strips white space, and double
         quotation marks.
+
         :param header: array of header lines where each line is a single string.
         :param lineno: int. Index of line number to be parsed
-        :return: array of header components from lineno.
+        :return: list of header components from lineno.
         """
         line = [s.strip('"') for s in header[lineno].strip().split('","')]
         return line
@@ -43,6 +44,7 @@ class HOBOdata:
     def read_csv_header(self, file_name):
         """
         Read the header lines from the beginning of a file. Reads n_lines, and stores them as headers object.
+
         :param file_name: str. File path of file to be read.
         """
         self.filename = file_name
@@ -60,15 +62,18 @@ class HOBOdata:
     def get_header_nlines(self, file_name):
         """
         Estimate how many header lines exist in a file
+
         :param file_name:
-        :return:
+        :return: int that is index of last header line
 
         .. Warning::
             This is a simplistic filter that searches for the first row where there are no quotes and returns line_num
             - 1 on a 1 based index.
-             Complex files with quotes around data fields, or no quotes in header lines will not be caught.
 
-        .. Example::
+            Complex files with quotes around data fields, or no quotes in header lines will not be caught.
+
+        **Example:**
+
             'Plot Title: RS12'
             '#','Date Time, GMT-07:00','Temp, °C','Intensity, lum/ft²','Coupler Attached','Stopped','End Of File'
             1,11/17/2014 11:10:00 AM,3.472,16.0,,,
@@ -91,7 +96,7 @@ class HOBOdata:
         """
         :param header: array of header lines where each line is a single string.
         :param lineno: keyword argument. index of header array. Function operates on specified index. Default -1
-        :return:
+        :return: str containing serial number
         """
 
         return findall("LGR S/N[^)]*", header[lineno])[0].split(':')[-1]
@@ -99,11 +104,14 @@ class HOBOdata:
     def get_csv_GMT_offset(self, header, lineno=-1):
         """
         Get timezone as an offset from Greenwhich Mean Time from the header file
+
         :param lineno: keyword argument. index of header array. Function operates on specified index. Default -1
         :param header: array of header lines where each line is a single string.
         :return: string of timezone offset from GMT
-        ..Example PST
-             '-08:00'
+
+        **Example:**
+
+            String for PST  '-08:00'
         """
         gmt = findall('GMT[^"]*', header[lineno])[0].split(':')
         hr = float(gmt[0][3:])
@@ -114,6 +122,7 @@ class HOBOdata:
     def get_csv_temp_unit(self, header, lineno=-1):
         """
         Get unit for temperature records
+
         :param header: array of header lines where each line is a single string.
         :param lineno: keyword argument. index of header array. Function operates on specified index. Default -1
         :return: str with single letter defining units for temperature.
@@ -124,6 +133,7 @@ class HOBOdata:
     def get_csv_intensity_unit(self, header, lineno=-1):
         """
         Get unit for sunlight intensity
+
         :param header: array of header lines where each line is a single string
         :param lineno: keyword argument. index of header array. Function operates on specified index. Default -1
         :return: str defining units for sunlight intensity
@@ -134,6 +144,7 @@ class HOBOdata:
     def get_csv_col(self, header, lineno=-1):
         """
         Extract column names from csv format
+
         :param header: array of header lines where each line is a single string.
         :param lineno: keyword argument. index of header array. Function operates on specified index. Default -1
         :return: array of column names.
@@ -148,9 +159,10 @@ class HOBOdata:
     def get_timestamp_col(self, col):
         """
         Time stamps can be exported by HOBO into either 1 or 2 columns
+
         :param col: an array of column names
-        :return: array of index locations
-        :return: array of column name(s) that make the timestamp
+        :return: list of index locations
+        :return: list of column name(s) that make the timestamp
         """
         i = 0
         timestamp_i = []
@@ -172,9 +184,8 @@ class HOBOdata:
     def load_csv_data(self, fname):
         """
         Load csv file output by HOBO pendants into a Pandas DataFrame.
+
         :param fname: str. Filepath of csv data file
-        :param skip_nrows: number of rows to skip. Start reading from the bottom of the header.
-        :param col_line: a 0 based index identifying which line contains the column names.
         """
 
         self.read_csv_header(fname)
@@ -186,15 +197,17 @@ class HOBOdata:
 
     def export_to_GCE_csv(self, csvname):
        """
-       Export the HOBO data to a GCE friendly csv file
+       Export the HOBO data to a GCE_ friendly csv file
+
        :param csvname: str. Filepath to output csv file
-       :param col_line: a 0 based index identifying which line contains the column names.
+
+       .. _GCE : https://gce-lter.marsci.uga.edu/public/im/tools/data_toolbox.htm
        """
        col = self.col
        '''
        export column is important for oddball HOBO settings that split timestamps btwn columns and add erroneous columns
         such as:
-       ..Example::
+       .. Example::
             '#',
              'Date',
              'Time',
@@ -231,6 +244,7 @@ class HOBOdata:
     def set_data_GMT_offset(self, hr_offset):
         """
         Define time zone of DataFrame timestamps in offset from UTC/GMT
+
         :param hr_offset: floating point of time zone in hours difference from Greenwhich Mean Time
         """
         ts = self.data
@@ -245,8 +259,9 @@ class HOBOdata:
     def is_timezone_correct(self, tz):
         """
         Check the timezone in which data was recorded against the expected timezone
+
         :param tz: a timezone as number of hours offset from Greenwhich Mean Time
-        :return: Logical variable
+        :return: Boolean
         """
         #ts_str = str(tz)
         gmt = self.get_csv_GMT_offset(self.header)
@@ -255,8 +270,8 @@ class HOBOdata:
     def format_timezone(self, tz=-8):
         """
         Check that timezone is correct, and if not, adjust the time zone.
-        :param tz:a timezone as number of hours offset from Greenwhich Mean Time
-        :return:
+
+        :param tz: a timezone as number of hours offset from Greenwhich Mean Time
         """
         gmt_num = self.get_csv_GMT_offset(self.header)
         self.set_data_GMT_offset(gmt_num)
@@ -264,21 +279,22 @@ class HOBOdata:
             self.set_data_GMT_offset(tz)
 
     def format_sync_timestep(self, n_min='5min'):
-        '''
+        """
         Sync timestamps to a defined measurement interval. Timestamps are increased to the next defined interval.
+
         :param n_min: str. keyword argument. Interval to round time stamps to. Default '5min'.
 
-        ..Note::
+        .. Note::
             This uses the function ceil to round up to the next interval. The interval provided must match a known type
             and contain both a number and a letter such as '1D' to round up to the next whole day.
 
             See documentation for valid types [#]_
 
-        ..Warning::
+        .. Warning::
             This will change the index and timestamp of every record.
 
-        .. _[#] : https://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
-        '''
+        .. [#] : https://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
+        """
 
         df = self.data.index
         sync = df.ceil(n_min)
@@ -287,6 +303,7 @@ class HOBOdata:
     def is_temp_celsius(self):
         """
         Read units definition from header and return true if units are celsius
+
         :return: Boolean. True if temperature is recorded in celsius.
         """
         units = self.get_csv_temp_unit(self.header)
@@ -295,6 +312,7 @@ class HOBOdata:
     def temp_F_to_C(self, temp):
         """
         Convert temperature records from Fahrenheit
+
         :param temp: a temperature value or list of temperature values in degrees fahrenheit.
         :return: a temperature value or list of temperature values in degrees celsius
         """
@@ -303,7 +321,8 @@ class HOBOdata:
     def format_temp(self, col='Temp', unit='C'):
         """
         Format temperature records to desired units
-        :param col: keyword argurment. Column containing temperature data. Defaults to 'Temp'
+
+        :param col: keyword argurment. str. Name of column containing temperature data. Defaults to 'Temp'
         :param unit: keyword argument. str defining desired unit. Default is 'C'
         """
 
@@ -317,27 +336,29 @@ class HOBOdata:
     def is_intensity_lux(self):
         """
         Read units definition from header and return True if units are Lux
+
         :return: Boolean. True if light intensity is recorded in Lux
         """
         units = self.get_csv_intensity_unit(self.header)
         return 'lux' == units[0].lower()
 
     def intensity_lumft2_to_lux(self, intensity):
-        '''
+        """
         Convert light intensity records from lumen ft-2 into Lux
+
         :param intensity: an intensity value or list of intensity values in lumen ft-2
         :return: an intensity or list of intensity values in Lux
-        '''
+        """
 
         return intensity*10.76391
 
     def format_intensity(self, col='Intensity', unit='Lux'):
-        '''
+        """
         Format light intensity records in desired units
-        :param col: keyword argument. Column containing light intensity data. Defaults to Intensity
+
+        :param col: keyword argument. str. Name of column containing light intensity data. Defaults to 'Intensity'.
         :param unit: keyword argument. str defining desired units. Default is 'Lux' (SI)
-        :return:
-        '''
+        """
 
         df = self.data
         if unit.lower() == 'lux':
@@ -346,17 +367,16 @@ class HOBOdata:
         self.data = df
 
     def format_QAQC_data(self, units='SI', tz=-8, tstep='5min'):
-        '''
+        """
         Reformat the data using basic QAQC for SI or US units and time zone consistency regardless of daylight savings.
+
         :param units: str. keyword argument. The desired system of units. Default is 'SI'.
         :param tz: flt. keyword argument. The desired time zone as an offset from Greenwich Mean Time. Default is -8 (PST)
-        :param tstep. keyword argument. Interval to round time stamps to. Default '5min'.
+        :param tstep: keyword argument. Interval to round time stamps to. Default '5min'.
 
-        ..Note::
-            tstep is input to the function HOBOdata.format_sync_timestep. This uses the function ceil to round up to the
-             next time interval. The interval provided must match a known type and contain both a number and a letter
-            such as '1D' to round up to the next whole day.
-        '''
+        .. Note::
+            tstep is input to the function :meth:`HOBOdata.format_sync_timestep()`. Valid types are listed there.
+        """
         col = self.col
         if units.upper() == 'SI':
             self.format_temp(col='Temp', unit='C') if 'Temp' in col else None
@@ -368,10 +388,25 @@ class HOBOdata:
         self.format_sync_timestep(tstep)
 
     def reformat_HOBO_csv(self, infname, outfname=None, units='SI', tz=-8, tstep='5min'):
-        '''
+        """
+        Imports a csv file output by HoboWare software and checks for:
 
-        :return:
-        '''
+        * units
+        * timezone
+        * time sync (09:07 vs 09:05)
+
+        File is converted to specified settings and exported to a GCE_ friendly format.
+
+        :param infname: str. Filename to read
+        :param outfname: str. Filename to ouput. Defaults to same as infname
+        :param units: str. System of units desired. Defaults to SI
+        :param tz: int or flt. Timezone as offset from GMT
+        :param tstep: str. Time interval to sync to. Default is '5min'. See :meth:`HOBOdata.format_sync_timestep()`
+         or [#]_ for valid formats.
+
+        .. _GCE : https://gce-lter.marsci.uga.edu/public/im/tools/data_toolbox.htm
+        .. [#] : https://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
+        """
         self.load_csv_data(infname)
         self.format_QAQC_data(units=units, tz=tz, tstep=tstep)
 
