@@ -1,4 +1,4 @@
-../MET_hobo/
+MET_hobo
 ============
 
 .. toctree::
@@ -6,3 +6,4 @@
 
    file_manager
    hobo_qaqc
+   

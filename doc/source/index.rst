@@ -13,6 +13,7 @@ Contents:
 
    file_manager
    hobo_qaqc
+   config_file
 
 
 
