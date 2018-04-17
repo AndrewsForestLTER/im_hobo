@@ -1,5 +1,6 @@
+*************
 Python Module
-=============
+*************
 
 .. toctree::
    :maxdepth: 4
