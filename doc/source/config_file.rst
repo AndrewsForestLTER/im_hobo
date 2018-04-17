@@ -1,8 +1,8 @@
 Config File
-================
+===========
 
 Assigning directories
-----------------------
+---------------------
 ``MET_hobo/file_path.config``  must be **edited by each user.** It defines 3 directories:
 
 * ``dir_source_files`` - QAQC will be attempted on every csv file in this directory. The module contains options for wiping original files from this directory. This can be a server path.
@@ -15,11 +15,11 @@ Assigning directories
 Other Config Parameters
 ------------------------
 time_step
-^^^^^^^^^^
+^^^^^^^^^
 Each file will be synchronize to whole values of this interval. Must be a `Pandas timeseries`_ string.
 
 map_fname2dir
-^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
 Module contains options to use this parameter.
 This Python dictionary_ is used to map to final storage directory. The key (left side of : ) is an identifying string of
 characters that will be in every file name. The values (right side of : ) are a project name associated with those
