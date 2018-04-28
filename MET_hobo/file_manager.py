@@ -261,7 +261,7 @@ class FileHandling:
         '''
         output = self.proc_dir
         self.logs.extend(['\n\nDeleting Temporary DIR from Working DIR\n************************************\n',
-                          '%s\n%s\n' % (self.proc_dir, self.data_dir)])
+                          '%s\n%s\n' % (output, self.data_dir)])
         rmtree(self.data_dir)
 
         if listdir(output) == []:
@@ -318,27 +318,39 @@ class FileHandling:
         with open(flog, 'a') as f:
             f.writelines(logs)
 
+    def _log_chg(self, proc, start, end, dir_frm, dir_to, tot_cnt, chg_cnt, f_list):
+        """
+        Private function. Creates a list of strings to add bunches of files to a log
+        :param proc: str. What process was preformed
+        :param start: start time
+        :param end: end time
+        :param dir_frm: directory of source files
+        :param dir_to: directory of final files
+        :param tot_cnt: count of all files
+        :param chg_cnt: count of manipulated files
+        :param f_list: list of file names or file paths
+        :return: list of strings
+        """
+        log = [
+            """\n\n----------------------------\nStart {proc} - {start}\n----------------------------\
+            \n---------Read from {dir_frm}\
+            \n---------Ouput to  {dir_to}\
+            \n--------- {tot_cnt} files total\
+            \n--------- {chg_cnt} files processed\
+            \n""".format(**locals())
+              ]
+
+        log.extend(f_list)
+        tail = '\n----------------------------\nEnd %s- %s\n----------------------------\n'
+        log.append(tail%(proc, end))
+        return log
+
 
     def manage(self):
         """
 
         :return:
         """
-
-        def log_chg(proc, start, end, dir_frm, dir_to, tot_cnt, chg_cnt, f_list):
-            log =[
-                """\n\n----------------------------\nStart {proc} - {start}\n----------------------------\
-                \n---------Read from {dir_frm}\
-                \n---------Ouput to  {dir_to}\
-                \n--------- {tot_cnt} files total\
-                \n--------- {chg_cnt} files processed\
-                \n""".format(**locals())
-                  ]
-
-            log.extend(f_list)
-            tail = '\n----------------------------\nEnd %s- %s\n----------------------------\n'
-            log.append(tail%(proc, end))
-            return log
 
         # Copy files to a working directory and index file types and study sites
         self.set_log_header()
@@ -349,7 +361,7 @@ class FileHandling:
         start = datetime.now().strftime('%H:%M:%S')
         c_proc, c_count, cproc_count = self.qaqc_csv()
         end = datetime.now().strftime('%H:%M:%S')
-        self.logs.extend(log_chg('csv reformat', start, end, self.data_dir, self.proc_dir, c_count, cproc_count, c_proc))
+        self.logs.extend(self._log_chg('csv reformat', start, end, self.data_dir, self.proc_dir, c_count, cproc_count, c_proc))
 
         '''
         ..Warning::
@@ -362,7 +374,7 @@ class FileHandling:
         start = datetime.now().strftime('%H:%M:%S')
         h_proc, h_count, hproc_count = self.zip_hobo_files()
         end = datetime.now().strftime('%H:%M:%S')
-        self.logs.extend(log_chg('archive .hobo in ZIP',  start, end, self.data_dir, self.proc_dir, h_count, hproc_count, h_proc))
+        self.logs.extend(self._log_chg('archive .hobo in ZIP',  start, end, self.data_dir, self.proc_dir, h_count, hproc_count, h_proc))
         '''
         self.files['unk_ext'].extend(self.files['.hobo'])
 
