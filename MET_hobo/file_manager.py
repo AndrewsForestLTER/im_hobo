@@ -1,5 +1,5 @@
 """
-This module makes a batch call to QAQC methods devolped to process csv files created by HOBO sensors at
+This module preforms QAQC methods in a batch. Methods were developed to process csv files created by HOBO sensors at
 `meteorological sites`_ on the HJ Andrews experimental forest. It also preforms other file storage and management
 functions. For a
 specified directory, it processes all files and creates a directory of new, processed csv files.
@@ -10,7 +10,7 @@ When module is called :meth:`FileHandling.manage` is executed.
 
 This module is designed to minimize any read/write times by copying all files locally, preforming all processes, and
 then transferring files to final directories. This is ideal with external or network drives, but if all directories are\
- local, it will create source and final directories with duplicate file names.
+ local, it will create a final directory which duplicates file names from the source directory.
 
 .. _`meteorological sites`: https://andrewsforest.oregonstate.edu/research/infrastructure/climate
 """
@@ -28,8 +28,8 @@ import atexit
 class FileHandling:
     """
     Processes all files in assigned directory for timezone, units, and timestep sync, and converts values where
-    necessary. Contains methods for archiving using .zip, wiping directories after processing, and adding to .//metdat
-    directory structure.
+    necessary. Contains methods for archiving using .zip, wiping directories after processing, and adding to
+    existing directory structure: ./<FileArchive>/<Project>/<Site>.
 
     .. todo::
         possible change from sys.platform to os.name to decrease package dependencies
@@ -95,7 +95,7 @@ class FileHandling:
         """
         Private function. Obsolete in Python >=3.2. Create directory if does not exist.
 
-        :param dpath: str. Abolute path to directory.
+        :param dpath: str. Absolute path to directory.
 
         .. todo::
         In update to >=3.2, mkdirs(exist_ok=True)
@@ -236,7 +236,6 @@ class FileHandling:
         fhobo_count = fhobo.__len__()
         return zproc, fhobo_count, zproc_count
 
-
     def copy_to_final_dir(self, file_list, subdir, loc):
         """
         Call OS specific system command to  copy from temporary working directory to final storage. Selects files by
@@ -248,7 +247,7 @@ class FileHandling:
         :param file_list: List of str to select files from. `Example: ['RS12','RS04'] copies files 'RS12*' and 'RS04*'`
         :param subdir: str. Destination subdirectory within final storage directory. Files are moved to here.
         :param loc: str. Directory where files are currently located.
-        :return: List of strings of each filename copped to the final directory
+        :return: List of strings of each filename copied to the final directory
         """
 
         fnc_get_prj = self._get_projname
@@ -328,7 +327,7 @@ class FileHandling:
         sep = self.sep
 
         if sdir == self.final_dir:
-            self.logs.extend('WARNING!!!: Source direcotry is same as final directory. Directory clean aborted\n')
+            self.logs.extend('WARNING!!!: Source direcotry is same as final directory.\nABORT DIRECTORY CLEAN\n')
             return
 
         f_wipe = []
@@ -366,9 +365,9 @@ class FileHandling:
         """
         Execute file managment.
 
-            #. Copy files to working directory (_data).
+            #. Copy files to working directory (./_data).
             #. Create list of .csv, .hobo, and .logs files in working directory.
-            #. Attempt to preform QAQC on all .csv files and transfer to _processed.
+            #. Attempt to preform QAQC on all .csv files and transfer to ./_processed.
             #. Create a .zip file for all .hobo files from each site. Disabled per bitbucket `issue #10`_ .
             #. Copy all files with .csv, .log, and unknown extension to final storage.
             #. Delete temporary folders in working directory.
