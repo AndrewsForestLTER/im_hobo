@@ -226,7 +226,7 @@ class HOBOdata:
        f.write(header_str)
        f.close()
 
-       df.to_csv(csvname, columns=export_col, mode='a', date_format='%Y-%m-%d %H:%M')
+       df.to_csv(csvname, columns=export_col, mode='a', date_format='%Y-%m-%d %H:%M', float_format='%g')
 
     def set_data_GMT_offset(self, hr_offset):
         """
