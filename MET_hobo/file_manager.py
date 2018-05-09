@@ -152,11 +152,13 @@ class FileHandling:
         self.files = index_files
 
 
-    def qaqc_csv(self):
+    def qaqc_csv(self, time_step=None, units='SI', tz=-8):
         """
 
         :return:
         """
+        if time_step is None:
+            time_step = self.time_step
         # Reformat and QAQC all CSV files
         proc_dir = self.proc_dir
 
@@ -164,7 +166,7 @@ class FileHandling:
         fproc = []
         for f in fcsv:
             q = hobo_qaqc.HOBOdata()
-            q.reformat_HOBO_csv(f, proc_dir + basename(f), tstep=self.time_step)
+            q.reformat_HOBO_csv(f, proc_dir + basename(f), tstep=time_step, units=units, tz=tz)
             q = None
 
             fproc.append(f + '\n')
@@ -346,7 +348,7 @@ class FileHandling:
         return log
 
 
-    def manage(self):
+    def manage(self, time_step=None, units='SI', tz=-8):
         """
 
         :return:
@@ -358,8 +360,12 @@ class FileHandling:
         self.index_files()
 
         # Run QAQC and log results
+        if time_step is not None:
+            self.logs.extend(['**********************************',
+                '\nTime step used is %s\nTime step in config file was (%s) and was overrided at \
+            terminal\n'% (time_step, self.time_step)])
         start = datetime.now().strftime('%H:%M:%S')
-        c_proc, c_count, cproc_count = self.qaqc_csv()
+        c_proc, c_count, cproc_count = self.qaqc_csv(time_step=time_step, units=units, tz=tz)
         end = datetime.now().strftime('%H:%M:%S')
         self.logs.extend(self._log_chg('csv reformat', start, end, self.data_dir, self.proc_dir, c_count, cproc_count, c_proc))
 
