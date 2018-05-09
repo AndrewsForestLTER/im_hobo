@@ -50,5 +50,5 @@ To manually control time step, units, or time zone, from the command line, **wit
 .. code-block:: bat
 
     rem edit QAQC settings of batch from DOS
-    .\MET_hobo\MET_hobo>python -c "from file_manager import FileHandling; FileHandling().manage()"
+    .\MET_hobo\MET_hobo>python -c "from file_manager import FileHandling; FileHandling().manage(time_step='20min')"
 
