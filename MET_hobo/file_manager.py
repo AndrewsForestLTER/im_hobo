@@ -59,6 +59,8 @@ class FileHandling:
             self.copy = {'cmd':'robocopy', 'opt_mirror_all':'/MIR /TEE /e',
                          'opt_cut_files':'/mov /TEE /XX'}
             self.sep = '\\'
+        else:
+            raise OSError('This module does not support %s at this time\n'%OS)
 
         data_dir = wdir + '_data/'
         self._mkdirs_exist_ok(data_dir)
@@ -389,12 +391,11 @@ class FileHandling:
         _ = self.copy_to_final_dir(self.files['sites'], '_bulk_exp_clean', self.proc_dir)
 
         # Store any files that are not recognized as data files
-        self.logs.append('\n\n Start copy  UNRECOGNIZED FILE .EXT\n***********************************************\n\n')
         if self.files['unk_ext'] != []:
+            self.logs.append(
+                '\n\n Start copy  UNRECOGNIZED FILE .EXT\n***********************************************\n\n')
             fproc = self.copy_to_final_dir(self.files['unk_ext'], 'UNK_FILE', self.data_dir)
             self.logs.extend(fproc)
-        else:
-            self.logs.append('NONE')
 
         if self.files['.log'] != []:
             fproc = self.copy_to_final_dir(self.files['.log'], 'logs', self.data_dir)
