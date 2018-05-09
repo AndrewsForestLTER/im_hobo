@@ -1,0 +1,4 @@
+*****
+Intro
+*****
+.. include:: ../../README.rst
