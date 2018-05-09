@@ -56,14 +56,18 @@ class FileHandling:
         exec(pyc)
 
         # save directory paths to class instance
-        wdir = dir_local_processing
-        self.wdir = wdir
-        self.final_dir = dir_final_storage
-        self.src_dir = dir_source_files
+        try:
+            wdir = dir_local_processing
+            self.wdir = wdir
+            self.final_dir = dir_final_storage
+            self.src_dir = dir_source_files
 
-        self.map_fname2dir = map_fname2dir
+            self.map_fname2dir = map_fname2dir
 
-        self.time_step = time_step
+            self.time_step = time_step
+        except NameError:
+            print 'Ooops!!!\nYou forgot to setup ./MET_hobo/file_path.config'
+            raise SystemExit
 
         self.logs = []
 
@@ -406,6 +410,11 @@ class FileHandling:
             #. Wipe original source directory. This directory contains files where QAQC was not preformed. Disabled per \
             bitbucket `issue #10`_ .
             #. Write log file.
+
+        3 keyword variables are defined to allow the user to alter hobo_qaqc settings. Units, and time zone are set to
+        default values, SI units and PST (GMT-8). To change these values, manage must be called directly, through the
+        terminal, or through Python. time_step, is defined in the config file. This argument only needs to be defined
+        here if the user wants to override the config file at the command line.
 
         .. _`issue #10`: https://bitbucket.org/hjandrews/met_hobo/issues/10/task-request-simplify-file-management
         """
