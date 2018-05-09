@@ -31,6 +31,9 @@ class FileHandling:
     necessary. Contains methods for archiving using .zip, wiping directories after processing, and adding to
     existing directory structure: ./<FileArchive>/<Project>/<Site>.
 
+    .. Warning::
+        Executes ./MET_hobo/file_path.config as Python file and saves variables to class object.
+
     .. todo::
         possible change from sys.platform to os.name to decrease package dependencies
 
@@ -38,8 +41,6 @@ class FileHandling:
     """
     def __init__(self):
         """
-        .. Warning::
-            Executes MET_hobo//file_path.config as Python file and saves variables to class object.
         """
         self.start_date = datetime.now().strftime('%Y%m%d_%H%M%S')
 
