@@ -411,9 +411,12 @@ class FileHandling:
             bitbucket `issue #10`_ .
             #. Write log file.
 
-        3 keyword variables are defined to allow the user to alter hobo_qaqc settings. Units, and time zone are set to
-        default values, SI units and PST (GMT-8). To change these values, manage must be called directly, through the
-        terminal, or through Python. time_step, is defined in the config file. This argument only needs to be defined
+        3 keyword variables are defined to allow the user to alter :meth:`~hobo_qaqc.HOBOdata.format_QAQC_data` settings.
+        `units`, and `tz` (time zone) are set to
+        default values, SI units and PST (GMT-8). To change these values, :meth:`manage` must be called directly,
+        through the
+        terminal, or through Python. `time_step`, is defined in the :doc:`config file <file_path>`.
+        This argument only needs to be defined
         here if the user wants to override the config file at the command line.
 
         .. _`issue #10`: https://bitbucket.org/hjandrews/met_hobo/issues/10/task-request-simplify-file-management

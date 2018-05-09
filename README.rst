@@ -35,7 +35,7 @@ The module can be imported into Python 2.x and the classes and methods can be ac
 data, or file_manager can be used to manage file location
 
 :meth:`file_manager.FileHandling.manage` will run an entire batch process from start to finish. This method will also
-be executed when :meth:`file_manager` is called from Python, or from a terminal.
+be executed when :doc:`file_manager` is called from Python, or from a terminal.
 
 The entire batch process can be initiated from a terminal if Python is in the system path.
 
@@ -43,3 +43,12 @@ The entire batch process can be initiated from a terminal if Python is in the sy
 
     rem batch execute HOBO QAQC from DOS
     python file_manager.py
+
+If not directly running the module in Python, the configuration of the QA is handled by :doc:`config file <file_path>`.
+To manually control time step, units, or time zone, from the command line, **without opening Python**:
+
+.. code-block:: bat
+
+    rem edit QAQC settings of batch from DOS
+    .\MET_hobo\MET_hobo>python -c "from file_manager import FileHandling; FileHandling().manage()"
+
