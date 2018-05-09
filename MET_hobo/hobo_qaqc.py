@@ -381,6 +381,8 @@ class HOBOdata:
         if units.upper() == 'SI':
             self.format_temp(col='Temp', unit='C') if 'Temp' in col else None
             self.format_intensity(col='Intensity', unit='Lux') if 'Intensity' in col else None
+        else:
+            raise ValueError('%s is not a supported type of units. See documentation for details\n'%units)
 
         self.format_timezone(tz)
 
