@@ -238,8 +238,9 @@ class HOBOdata:
        header_str = '%s processed on %s UTC by %s v%s. Orig. record GMT %.0f. Output file %s\n'%(fname, t_exp, prog, prog_v, gmt_orig, csvname)
        f.write(header_str)
        f.close()
-
-       df.to_csv(csvname, columns=export_col, mode='a', date_format='%Y-%m-%d %H:%M', float_format='%g')
+       
+       with open(csvname, mode='a') as f:
+            df.to_csv(f, columns=export_col, mode='a', date_format='%Y-%m-%d %H:%M', float_format='%g', line_terminator='\n')
 
     def set_data_GMT_offset(self, hr_offset):
         """
