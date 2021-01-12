@@ -130,11 +130,13 @@ class FileHandling:
                 'Date: %s\n'%self.start_date]
         self.logs.extend(logs)
 
-
-    def copy_to_wdir(self):
+    def copy_src_to_wdir(self):
         """
         Copies source files to local working directory using OS specifc DOS, bash, or shell command. Results are output
         to log file.
+
+        Directory paths assigned to instance from file_path.config when instance is initialized.
+        `cp <dir_source_files> <wdir/_data>`
         """
         cp = self.copy
 
@@ -142,7 +144,6 @@ class FileHandling:
         cmd = '%s %s %s %s'%(cp['cmd'], self.src_dir, self.data_dir, cp['opt_mirror_all'])
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.logs.extend(proc.communicate())
-
 
     def index_files(self):
         '''
@@ -245,13 +246,30 @@ class FileHandling:
         fhobo_count = fhobo.__len__()
         return zproc, fhobo_count, zproc_count
 
-    def copy_to_final_dir(self, file_list, subdir, loc):
+
+    def copy_processed_to_final_dir(self):
         """
-        Call OS specific system command to  copy from temporary working directory to final storage. Selects files by
-        site using wildcard selection.
+        Copies processed (QC'd) files from local working directory to final directory using OS specifc DOS, bash, or
+        shell command. Results are output log file.
+
+        Directory paths assigned to instance from file_path.config when instance is initialized.
+        `cp <wdir/_processed> <dir_final_storage>`
+        """
+        cp = self.copy
+
+        # Copy files from server to local machine (or to processing folder)
+        cmd = '%s %s %s %s'%(cp['cmd'], self.proc_dir, self.final_dir, cp['opt_cut_files'])
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.logs.extend(proc.communicate())
+
+    def copy_selected_to_site_dir(self, file_list, subdir, loc):
+        """
+        Call OS specific system command to  copy desired files from temporary working directory to final storage.
+        Selects files by site using wildcard selection.
 
         **Example:**
-            RS12*
+            `cp <wdir/_processed/site*>  <dir_final_storage/porj_name/site_name>`
+            `cp \\server/REFSTANDS/RS12/`
 
         :param file_list: List of str to select files from. `Example: ['RS12','RS04'] copies files 'RS12*' and 'RS04*'`
         :param subdir: str. Destination subdirectory within final storage directory. Files are moved to here.
@@ -396,8 +414,7 @@ class FileHandling:
         log.append(tail%(proc, end))
         return log
 
-
-    def manage(self, time_step=None, units='SI', tz=-8):
+    def manage(self, time_step=None, units='SI', tz=-8, final_subdirs=False):
         """
         Execute file managment.
 
@@ -424,7 +441,7 @@ class FileHandling:
 
         # Copy files to a working directory and index file types and study sites
         self.set_log_header()
-        self.copy_to_wdir()
+        self.copy_src_to_wdir()
         self.index_files()
 
         # Run QAQC and log results
@@ -454,18 +471,22 @@ class FileHandling:
 
         # Copy files to final storage location
         self.logs.append('\n\n Start copy  DATA TO FINAL STORAGE\n***********************************************\n\n')
-        _ = self.copy_to_final_dir(self.files['sites'], '_bulk_exp_clean', self.proc_dir)
 
-        # Store any files that are not recognized as data files
-        if self.files['unk_ext'] != []:
-            self.logs.append(
-                '\n\n Start copy  UNRECOGNIZED FILE .EXT\n***********************************************\n\n')
-            fproc = self.copy_to_final_dir(self.files['unk_ext'], 'UNK_FILE', self.data_dir)
-            self.logs.extend(fproc)
+        if final_subdirs:
+            _ = self.copy_to_final_dir(self.files['sites'], '_bulk_exp_clean', self.proc_dir)
+            # Store any files that are not recognized as data files
+            if self.files['unk_ext'] != []:
+                self.logs.append(
+                    '\n\n Start copy  UNRECOGNIZED FILE .EXT\n***********************************************\n\n')
+                fproc = self.copy_to_final_dir(self.files['unk_ext'], 'UNK_FILE', self.data_dir)
+                self.logs.extend(fproc)
 
-        if self.files['.log'] != []:
-            fproc = self.copy_to_final_dir(self.files['.log'], 'logs', self.data_dir)
-            self.logs.extend(fproc)
+            if self.files['.log'] != []:
+                fproc = self.copy_to_final_dir(self.files['.log'], 'logs', self.data_dir)
+                self.logs.extend(fproc)
+
+        else:
+            self.copy_processed_to_final_dir()
 
         # Clean directories
         self.del_temp_folders()
