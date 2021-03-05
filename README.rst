@@ -6,7 +6,7 @@ and converted to user defined value, measurement units are checked and values co
 timestep is synced to a standardized interval. All files are removed from the source directory and filed for storage.
 All file movement is tracked in log files.
 
-See `module documentation <https://bitbucket.org/hjandrews/met_hobo/downloads/MET_hobo_v0.2.pdf>`_ for use.
+See `module documentation <https://bitbucket.org/hjandrews/im_hobo/downloads/MET_hobo_v0.2.pdf>`_ for use.
 
 Download the module
 -------------------
