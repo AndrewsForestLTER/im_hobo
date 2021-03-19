@@ -49,20 +49,21 @@ class FileHandling:
         with open('../file_path.config') as f:
             lines = f.read()
 
+        map_fname2dir = None
         # compile file into pyc (essentially a local .pyc)
         pyc = compile(lines, '<string>', 'exec')
         # use exec as function for forward compatibility with 3.x (2.x exec can be a statement)
         # this process improves speed %12
         exec(pyc)
 
+        if map_fname2dir:
+            self.map_fname2dir = map_fname2dir
         # save directory paths to class instance
         try:
             wdir = dir_local_processing
             self.wdir = wdir
             self.final_dir = dir_final_storage
             self.src_dir = dir_source_files
-
-            self.map_fname2dir = map_fname2dir
 
             self.time_step = time_step
         except NameError:
@@ -253,6 +254,7 @@ class FileHandling:
         shell command. Results are output log file.
 
         Directory paths assigned to instance from file_path.config when instance is initialized.
+
         `cp <wdir/_processed> <dir_final_storage>`
         """
         cp = self.copy
@@ -268,8 +270,16 @@ class FileHandling:
         Selects files by site using wildcard selection.
 
         **Example:**
-            `cp <wdir/_processed/site*>  <dir_final_storage/porj_name/site_name>`
-            `cp \\server/REFSTANDS/RS12/`
+
+            `cp <wdir/_processed/site*>  <dir_final_storage/proj_name/site_name/subdir>`
+
+            `cp //NewServer/hoboQA/_processed/RS12* //DataServer/REFSTANDS/RS12/_bulk_export_clean`
+
+        .. Warning::
+                This method was modified per bitbucket issue `issue #10`_ to create a simpler work flow
+                 where file movement is more manually controlled. At 6ec103b it was superseded by
+                 `copy_processed_to_final_dir`, removing it from the workflow. It remains as a legacy method
+                 still in BETA testing.
 
         :param file_list: List of str to select files from. `Example: ['RS12','RS04'] copies files 'RS12*' and 'RS04*'`
         :param subdir: str. Destination subdirectory within final storage directory. Files are moved to here.
@@ -294,10 +304,15 @@ class FileHandling:
                 The following line was edited per bitbucket issue #10_ to create a simpler file storage where file
                 movement is more manually controlled.
 
-            .. _#10 : https://bitbucket.org/hjandrews/met_hobo/issues/10/task-request-simplify-file-management
-            storage = fin_dir + sep + prj + sep + s + subdir
-            '''
+            .. _#10 : https://bitbucket.org/hjandrews/im_hobo/issues/10/task-request-simplify-file-management
+            
+            At commit 6ec103b `file_manager.FileHandling().copy_to_final_dir()` was added. This line no longer needs 
+            to be commented/substituted for the current work flow, but has not been thoroughly tested and should be 
+            considered a Beta option.
+            
             storage = fin_dir + sep + subdir
+            '''
+            storage = fin_dir + sep + prj + sep + s + sep + subdir
             fnc_mkdirs_exists(storage)
 
             # Cut files from local machine (or processing folder) to final storage (server)
@@ -436,7 +451,7 @@ class FileHandling:
         This argument only needs to be defined
         here if the user wants to override the config file at the command line.
 
-        .. _`issue #10`: https://bitbucket.org/hjandrews/met_hobo/issues/10/task-request-simplify-file-management
+        .. _`issue #10`: https://bitbucket.org/hjandrews/im_hobo/issues/10/task-request-simplify-file-management
         """
 
         # Copy files to a working directory and index file types and study sites
@@ -459,7 +474,7 @@ class FileHandling:
             The following feature was disabled per bitbucket issue #10_ to create a simpler file storage where file
             movement is more manually controlled.
 
-        .. _#10 :https://bitbucket.org/hjandrews/met_hobo/issues/10/task-request-simplify-file-management
+        .. _#10 :https://bitbucket.org/hjandrews/im_hobo/issues/10/task-request-simplify-file-management
 
         # ZIP any .hobo files into an archive
         start = datetime.now().strftime('%H:%M:%S')
@@ -473,16 +488,16 @@ class FileHandling:
         self.logs.append('\n\n Start copy  DATA TO FINAL STORAGE\n***********************************************\n\n')
 
         if final_subdirs:
-            _ = self.copy_to_final_dir(self.files['sites'], '_bulk_exp_clean', self.proc_dir)
+            _ = self.copy_selected_to_site_dir(self.files['sites'], '_bulk_exp_clean', self.proc_dir)
             # Store any files that are not recognized as data files
             if self.files['unk_ext'] != []:
                 self.logs.append(
                     '\n\n Start copy  UNRECOGNIZED FILE .EXT\n***********************************************\n\n')
-                fproc = self.copy_to_final_dir(self.files['unk_ext'], 'UNK_FILE', self.data_dir)
+                fproc = self.copy_selected_to_site_dir(self.files['unk_ext'], 'UNK_FILE', self.data_dir)
                 self.logs.extend(fproc)
 
             if self.files['.log'] != []:
-                fproc = self.copy_to_final_dir(self.files['.log'], 'logs', self.data_dir)
+                fproc = self.copy_selected_to_site_dir(self.files['.log'], 'logs', self.data_dir)
                 self.logs.extend(fproc)
 
         else:
@@ -495,7 +510,7 @@ class FileHandling:
             The following feature was disabled per bitbucket issue #10_ to create a simpler file storage where file
             movement is more manually controlled.
 
-        .. _#10 : https://bitbucket.org/hjandrews/met_hobo/issues/10/task-request-simplify-file-management
+        .. _#10 : https://bitbucket.org/hjandrews/im_hobo/issues/10/task-request-simplify-file-management
         start = datetime.now().strftime('%H:%M:%S')
         f_wipe = self.del_files_frm_srcdir()
         end = datetime.now().strftime('%H:%M:%S')
