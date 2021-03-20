@@ -257,18 +257,18 @@ class HOBOdata:
         self.col = col
 
     def export_to_GCE_csv(self, csvname):
-       """
-       Export the HOBO data to a GCE_ friendly csv file
+        """
+        Export the HOBO data to a GCE_ friendly csv file
 
-       :param csvname: str. Filepath to output csv file
+        :param csvname: str. Filepath to output csv file
 
-       .. _GCE : https://gce-lter.marsci.uga.edu/public/im/tools/data_toolbox.htm
-       """
-       col = self.col
-       '''
-       export column is important for oddball HOBO settings that split timestamps btwn columns and add erroneous columns
+        .. _GCE : https://gce-lter.marsci.uga.edu/public/im/tools/data_toolbox.htm
+        """
+        col = self.col
+        '''
+        export column is important for oddball HOBO settings that split timestamps btwn columns and add erroneous columns
         such as:
-       .. Example::
+        .. Example::
             '#',
              'Date',
              'Time',
@@ -277,31 +277,38 @@ class HOBOdata:
              'Coupler Attached (LGR S/N: 10335619)',
              'Stopped (LGR S/N: 10335619)',
              'End Of File (LGR S/N: 10335619)'
-       '''
-       export_col = ['Date']
-       export_col.append('Temp') if 'Temp' in col else None
-       export_col.append('Intensity') if 'Intensity' in col else None
-       data = self.data
-       df = data.dropna(subset=export_col[1:])
-       data = None
+        '''
+        export_col = ['Date']
+        export_col.append('Temp') if 'Temp' in col else None
+        export_col.append('Intensity') if 'Intensity' in col else None
+        data = self.data
+        df = data.dropna(subset=export_col[1:])
+        data = None
 
-       df['Date'] = df.index
-       df.set_index(keys='#', drop=True, inplace=True)
-       df.index.rename('RecNum', inplace=True)
+        df.loc[:, 'Date'] = df.index
+        if '#' in df.columns:
+            # record number present
+            df.set_index(keys='#', drop=True, inplace=True)
+        else:
+            # No record number present (reset_index() is 0 based, but same speed)
+            df.index = pd.RangeIndex(start=1, stop=len(df)+1, step=1)
 
-       t_exp = pd.datetime.now(tz=pytz.utc).strftime('%Y-%m-%d %H:%M')
-       prog = __name__
-       prog_v = __version__
-       fname = self.filename
-       gmt_orig = self.get_csv_GMT_offset(self.header)
+        df.index.rename('RecNum', inplace=True)
 
-       f = open(csvname, 'w')
-       header_str = '%s processed on %s UTC by %s v%s. Orig. record GMT %.0f. Output file %s\n'%(fname, t_exp, prog, prog_v, gmt_orig, csvname)
-       f.write(header_str)
-       f.close()
-       
-       with open(csvname, mode='a') as f:
-            df.to_csv(f, columns=export_col, mode='a', date_format='%Y-%m-%d %H:%M', float_format='%g', line_terminator='\n')
+        t_exp = pd.datetime.now(tz=pytz.utc).strftime('%Y-%m-%d %H:%M')
+        prog = __name__
+        prog_v = __version__
+        fname = self.filename
+        gmt_orig = self.get_csv_GMT_offset(self.header)
+
+        header_str = '%s processed on %s UTC by %s v%s. Orig. record GMT %.0f. Output file %s\n'%(fname, t_exp, prog,
+            prog_v, gmt_orig, csvname)
+        with open(csvname, 'w') as f:
+            f.write(header_str)
+
+        with open(csvname, mode='a') as f:
+            df.to_csv(f, columns=export_col, mode='a', date_format='%Y-%B-%d %H:%M', float_format='%g',
+                      line_terminator='\n')
 
     def set_data_GMT_offset(self, hr_offset):
         """
