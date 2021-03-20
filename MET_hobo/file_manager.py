@@ -9,8 +9,8 @@ QAQC methods are imported from :meth:`hobo_qaqc.HOBOdata.reformat_HOBO_csv`.
 When module is called :meth:`FileHandling.manage` is executed.
 
 This module is designed to minimize any read/write times by copying all files locally, preforming all processes, and
-then transferring files to final directories. This is ideal with external or network drives, but if all directories are\
- local, it will create a final directory which duplicates file names from the source directory.
+then transferring files to final directories. This is ideal with external or network drives, but if all directories are
+local, it will create a final directory which duplicates file names from the source directory.
 
 .. _`meteorological sites`: https://andrewsforest.oregonstate.edu/research/infrastructure/climate
 """
@@ -39,14 +39,14 @@ class FileHandling:
 
         possible change from shutil.rmtrees to os.remove os.rmdir
     """
-    def __init__(self):
+    def __init__(self, config='../file_path.config'):
         """
         """
         self.start_date = datetime.now().strftime('%Y%m%d_%H%M%S')
 
         # load config file as one formatted string
         # partial path is a weak point and assumes that pwd is ./MET_hobo/MET_hobo
-        with open('../file_path.config') as f:
+        with open(config) as f:
             lines = f.read()
 
         # compile file into pyc (essentially a local .pyc)
@@ -66,7 +66,7 @@ class FileHandling:
 
             self.time_step = time_step
         except NameError:
-            print 'Ooops!!!\nYou forgot to setup ./MET_hobo/file_path.config'
+            print ('Ooops!!!\nYou forgot to setup ./MET_hobo/file_path.config')
             raise SystemExit
 
         self.logs = []
@@ -79,9 +79,10 @@ class FileHandling:
 
         OS = platform
         if 'win' in OS:
-            # options mov: cuts, mir: copies, TEE: prints to screen, e: includes sub-dir, XX: excludes dir
-            self.copy = {'cmd':'robocopy', 'opt_mirror_all':'/MIR /TEE /e',
-                         'opt_cut_files':'/mov /TEE /XX'}
+            # options mov: cuts, mir: copies, TEE: prints to screen, e: includes sub-dir, XD *: excludes dir *,
+            # XX: exclude (don't delete) files in dest. not in src.
+            self.copy = {'cmd': 'robocopy', 'opt_mirror_all': '/MIR /TEE /XX /XD * ',
+                         'opt_cut_files': '/mov /TEE /XX'}
             self.sep = '\\'
         else:
             raise OSError('This module does not support %s at this time\n'%OS)
