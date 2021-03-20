@@ -50,46 +50,46 @@ class HOBOdata:
         self.filename = file_name
 
         n_lines = self.get_header_nlines(file_name)
-        if n_lines >0:
+        if 4 > n_lines >0:
             with open(file_name) as f:
                 header = [f.next() for l in range(0, n_lines)]
-        elif n_lines == 0:
+        else:
             raise ValueError('This file does not have a header that matches a recognized HOBOWARE format\
-            \nheader n_lines == 0')
+            \nheader n_lines == {n_lines}'.format(**locals()))
 
         self.header = header
 
     def get_header_nlines(self, file_name):
         """
-        Estimate how many header lines exist in a file
+        Estimate how many header lines exist in a file.
 
-        :param file_name:
+        :param file_name: str containing file path
         :return: int that is index of last header line
 
         .. Warning::
-            This is a simplistic filter that searches for the first row where there are no quotes and returns line_num
-            - 1 on a 1 based index.
+            This is a simplistic filter that searches for the first row where there are < 8 letters. 8 letters allow for
+            12 hour time format (AM/PM) plus 'Logged', while separating number data from text headers
 
-            Complex files with quotes around data fields, or no quotes in header lines will not be caught.
+            Complex files with headers that are numerical and special character, or text data will break the method.
 
         **Example:**
 
             'Plot Title: RS12'
             '#','Date Time, GMT-07:00','Temp, °C','Intensity, lum/ft²','Coupler Attached','Stopped','End Of File'
-            1,11/17/2014 11:10:00 AM,3.472,16.0,,,
+            1,11/17/2014 11:10:00 AM,3.472,16.0,Logged,,
 
             returns 2
         """
         i = 0
-        f = open(file_name)
-        while True:
-            l = f.next().count('"')
-            if l is 0:
-                break
-            else:
-                i += 1
+        with open(file_name) as f:
+            while True:
+                line = f.next()
+                find_abc = [char.isalpha() for char in line]
+                if find_abc.count(True) > 8:
+                    i += 1
+                else:
+                    break
 
-        f.close()
         return i
 
     def get_csv_sn(self, header, lineno=-1):
