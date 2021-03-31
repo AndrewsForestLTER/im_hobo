@@ -14,7 +14,8 @@ def _get_header_line(header, lineno, sep):
         Private function. Breaks header line into individual comma delimited parts and strips white space, and double
         quotation marks.
 
-        **Example:**
+        Example::
+
             ['"#","Date","Time, GMT-08:00","Temp, \xc2\xb0C (LGR S/N: 920980, SEN S/N: 920980)","Intensity, Lux (LGR S/N:
                 920980, SEN S/N: 920980)"\n']
 
@@ -89,7 +90,7 @@ class HOBOdata:
 
             Complex files with headers that are numerical and special character, or text data will break the method.
 
-        **Example:**
+        Example::
 
             'Plot Title: RS12'
             '#','Date Time, GMT-07:00','Temp, °C','Intensity, lum/ft²','Coupler Attached','Stopped','End Of File'
@@ -126,7 +127,7 @@ class HOBOdata:
         :param header: array of header lines where each line is a single string.
         :return: string of timezone offset from GMT
 
-        **Example:**
+        Example::
 
             String for PST  '-08:00'
         """
@@ -173,10 +174,11 @@ class HOBOdata:
         From multiple header lines, this extracts a single line, and strips extra info, leaving only column names. File
         delimiter is used to split header into columns, and ',' is used to split info within a column.
 
-        **Example::**
+        Example::
+
             Singles string header:
             ['"#","Date","Time, GMT-08:00","Temp, \xc2\xb0C (LGR S/N: 920980, SEN S/N: 920980)","Intensity, Lux (LGR S/N:
-                920980, SEN S/N: 920980)"\n']
+            920980, SEN S/N: 920980)"\\n']
 
             becomes a list of column strings:
 

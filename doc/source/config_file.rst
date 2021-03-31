@@ -16,14 +16,24 @@ Other Config Parameters
 ------------------------
 time_step
 ^^^^^^^^^
-Each file will be synchronize to whole values of this interval. Must be a `Pandas timeseries`_ string.
+Each file will be synchronized to whole values of this interval. Must be a `Pandas timeseries`_ string.
 
 map_fname2dir
 ^^^^^^^^^^^^^
-Module contains options to use this parameter.
-This Python dictionary_ is used to map to final storage directory. The key (left side of : ) is an identifying string of
+Optional parameter.
+This Python dictionary_ is used to map to multiple final storage directories. The key (left side of : ) is an identifying string of
 characters that will be in every file name. The values (right side of : ) are a project name associated with those
-files. This will then place all identified files into <dir_final_storage>//<value>//<filename left of "_">//<filename>
+files. This will then place all identified files into 
+``<dir_final_storage>//<value, projname right of "_">//<key, filename left of "_">//<filename>``
+
+Example::
+	
+	```
+	map_fname2dir = {'RS':'REFSTAND'} 	
+	file = 'RS12_20160901.csv'	
+	# creates 	
+	<dir_final_storage>//REFSTAND//RS12//RS12_20160901.csv
+	```
 
 .. _`Pandas timeseries`: https://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
 .. _dictionary: https://docs.python.org/2/tutorial/datastructures.html#dictionaries
