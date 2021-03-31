@@ -9,16 +9,33 @@ __authors__ = 'Greg Cohn'
 __version__ = '0.1'
 
 
-def _get_header_line(header, lineno):
+def _get_header_line(header, lineno, sep):
         """
         Private function. Breaks header line into individual comma delimited parts and strips white space, and double
         quotation marks.
+
+        Example::
+
+            ['"#","Date","Time, GMT-08:00","Temp, \xc2\xb0C (LGR S/N: 920980, SEN S/N: 920980)","Intensity, Lux (LGR S/N:
+                920980, SEN S/N: 920980)"\n']
+
+            becomes
+
+            ['#',
+             'Date',
+             'Time, GMT-08:00',
+             'Temp, \xc2\xb0C (LGR S/N: 920980, SEN S/N: 920980)',
+             'Intensity, Lux (LGR S/N: 920980, SEN S/N: 920980)']
 
         :param header: array of header lines where each line is a single string.
         :param lineno: int. Index of line number to be parsed
         :return: list of header components from lineno.
         """
-        line = [s.strip('"') for s in header[lineno].strip().split('","')]
+        col_line = header[lineno]
+        if sep is ',' and col_line.count('"'):
+            sep = '","'
+
+        line = [s.strip('"') for s in col_line.strip().split(sep)]
         return line
 
 
@@ -40,6 +57,7 @@ class HOBOdata:
         self.data = pd.DataFrame()
         self.filename = ''
         self.col = []
+        self.sep = ''
 
     def read_csv_header(self, file_name):
         """
@@ -50,46 +68,46 @@ class HOBOdata:
         self.filename = file_name
 
         n_lines = self.get_header_nlines(file_name)
-        if n_lines >0:
+        if 4 > n_lines >0:
             with open(file_name) as f:
                 header = [f.next() for l in range(0, n_lines)]
-        elif n_lines == 0:
+        else:
             raise ValueError('This file does not have a header that matches a recognized HOBOWARE format\
-            \nheader n_lines == 0')
+            \nheader n_lines == {n_lines}'.format(**locals()))
 
         self.header = header
 
     def get_header_nlines(self, file_name):
         """
-        Estimate how many header lines exist in a file
+        Estimate how many header lines exist in a file.
 
-        :param file_name:
+        :param file_name: str containing file path
         :return: int that is index of last header line
 
         .. Warning::
-            This is a simplistic filter that searches for the first row where there are no quotes and returns line_num
-            - 1 on a 1 based index.
+            This is a simplistic filter that searches for the first row where there are < 8 letters. 8 letters allow for
+            12 hour time format (AM/PM) plus 'Logged', while separating number data from text headers
 
-            Complex files with quotes around data fields, or no quotes in header lines will not be caught.
+            Complex files with headers that are numerical and special character, or text data will break the method.
 
-        **Example:**
+        Example::
 
             'Plot Title: RS12'
             '#','Date Time, GMT-07:00','Temp, °C','Intensity, lum/ft²','Coupler Attached','Stopped','End Of File'
-            1,11/17/2014 11:10:00 AM,3.472,16.0,,,
+            1,11/17/2014 11:10:00 AM,3.472,16.0,Logged,,
 
             returns 2
         """
         i = 0
-        f = open(file_name)
-        while True:
-            l = f.next().count('"')
-            if l is 0:
-                break
-            else:
-                i += 1
+        with open(file_name) as f:
+            while True:
+                line = f.next()
+                find_abc = [char.isalpha() for char in line]
+                if find_abc.count(True) > 8:
+                    i += 1
+                else:
+                    break
 
-        f.close()
         return i
 
     def get_csv_sn(self, header, lineno=-1):
@@ -109,11 +127,19 @@ class HOBOdata:
         :param header: array of header lines where each line is a single string.
         :return: string of timezone offset from GMT
 
-        **Example:**
+        Example::
 
             String for PST  '-08:00'
         """
-        gmt = findall('GMT[^"]*', header[lineno])[0].split(':')
+        reFind_gmt = findall('GMT[^"]*', header[lineno])
+
+        if reFind_gmt:
+            gmt = reFind_gmt[0].split(':')
+        elif not reFind_gmt:
+            raise AttributeError('Required attribute: TIME ZONE not found in header!\nTo export time zone from '\
+                'HOBOware:\nGo to Preferences>>General>>Export Settings:\nDE-SELECT option, "No quotes or commas in' \
+                'headings, properties in parentheses"\n')
+
         hr = float(gmt[0][3:])
         hr_frac = float(gmt[-1])
         hr += hr_frac
@@ -141,18 +167,33 @@ class HOBOdata:
         intensity = findall('(?i)(Lux|lum/ft\xc2\xb2)', header[lineno])
         return intensity
 
-    def get_csv_col(self, header, lineno=-1):
+    def get_csv_col(self, header, sep, lineno=-1):
         """
-        Extract column names from csv format
+        Extract column names from csv format.
+
+        From multiple header lines, this extracts a single line, and strips extra info, leaving only column names. File
+        delimiter is used to split header into columns, and ',' is used to split info within a column.
+
+        Example::
+
+            Singles string header:
+            ['"#","Date","Time, GMT-08:00","Temp, \xc2\xb0C (LGR S/N: 920980, SEN S/N: 920980)","Intensity, Lux (LGR S/N:
+            920980, SEN S/N: 920980)"\\n']
+
+            becomes a list of column strings:
+
+            ['#', 'Date', 'Time', 'Temp', 'Intensity']
 
         :param header: array of header lines where each line is a single string.
         :param lineno: keyword argument. index of header array. Function operates on specified index. Default -1
         :return: array of column names.
         """
-        col = _get_header_line(header, lineno)
+        col = _get_header_line(header, lineno, sep)
         col_edit = []
         for c in col:
-            col_edit.append(c.split(',')[0])
+            #str_wo_utf_head = c.decode("utf-8-sig").encode("utf-8")
+            first_of_parts =c.split(',')[0].split(' ')[0]
+            col_edit.append(first_of_parts)
 
         return col_edit
 
@@ -176,10 +217,30 @@ class HOBOdata:
         if timestamp_i.__len__() > 1:
             timestamp_col = timestamp_n[0] + '_' + timestamp_n[1]
             timestamp_i = [timestamp_i]
+        elif not timestamp_i or not timestamp_n:
+            raise ValueError('No Date or Time column(s) found')
         else:
              timestamp_col = timestamp_n[0]
 
         return timestamp_i, timestamp_col
+
+    def get_delimiter(self, header, lineno=-1):
+        """
+        Find the delimiter used in the csv file.
+
+        AS of 3/9/21, the only possible delimiters when exporting from HOBOware are \t, ; and , . This method tests for
+        which one is used, and returns the answer.
+
+        :param header: array of header lines where each line is a single string.
+        :param lineno: keyword argument. index of header array. Function operates on specified index. Default -1
+        :return: str containing delimiter
+        """
+        header_col = header[lineno]
+        possible_delimiters = [';', '\t', ',']
+        for d in possible_delimiters:
+            if d in header_col:
+                return d
+        raise KeyError('Cannot find valid delimiter.\nHOBOware only exports ";" , "\\t" , ","')
 
     def load_csv_data(self, fname):
         """
@@ -190,24 +251,26 @@ class HOBOdata:
 
         self.read_csv_header(fname)
         skip_nrows = self.header.__len__()
-        col = self.get_csv_col(self.header)
+        self.sep = self.get_delimiter(self.header, lineno=-1)
+        col = self.get_csv_col(self.header, self.sep)
         date_col_i, date_col_n = self.get_timestamp_col(col)
-        self.data = pd.read_csv(fname, parse_dates=date_col_i, skiprows=skip_nrows, names=col, index_col=date_col_n)
+        self.data = pd.read_csv(fname, delimiter=self.sep, parse_dates=date_col_i, skiprows=skip_nrows, names=col,
+                                index_col=date_col_n)
         self.col = col
 
     def export_to_GCE_csv(self, csvname):
-       """
-       Export the HOBO data to a GCE_ friendly csv file
+        """
+        Export the HOBO data to a GCE_ friendly csv file
 
-       :param csvname: str. Filepath to output csv file
+        :param csvname: str. Filepath to output csv file
 
-       .. _GCE : https://gce-lter.marsci.uga.edu/public/im/tools/data_toolbox.htm
-       """
-       col = self.col
-       '''
-       export column is important for oddball HOBO settings that split timestamps btwn columns and add erroneous columns
+        .. _GCE : https://gce-lter.marsci.uga.edu/public/im/tools/data_toolbox.htm
+        """
+        col = self.col
+        '''
+        export column is important for oddball HOBO settings that split timestamps btwn columns and add erroneous columns
         such as:
-       .. Example::
+        .. Example::
             '#',
              'Date',
              'Time',
@@ -216,31 +279,38 @@ class HOBOdata:
              'Coupler Attached (LGR S/N: 10335619)',
              'Stopped (LGR S/N: 10335619)',
              'End Of File (LGR S/N: 10335619)'
-       '''
-       export_col = ['Date']
-       export_col.append('Temp') if 'Temp' in col else None
-       export_col.append('Intensity') if 'Intensity' in col else None
-       data = self.data
-       df = data.dropna(subset=export_col[1:])
-       data = None
+        '''
+        export_col = ['Date']
+        export_col.append('Temp') if 'Temp' in col else None
+        export_col.append('Intensity') if 'Intensity' in col else None
+        data = self.data
+        df = data.dropna(subset=export_col[1:])
+        data = None
 
-       df['Date'] = df.index
-       df.set_index(keys='#', drop=True, inplace=True)
-       df.index.rename('RecNum', inplace=True)
+        df.loc[:, 'Date'] = df.index
+        if '#' in df.columns:
+            # record number present
+            df.set_index(keys='#', drop=True, inplace=True)
+        else:
+            # No record number present (reset_index() is 0 based, but same speed)
+            df.index = pd.RangeIndex(start=1, stop=len(df)+1, step=1)
 
-       t_exp = pd.datetime.now(tz=pytz.utc).strftime('%Y-%m-%d %H:%M')
-       prog = __name__
-       prog_v = __version__
-       fname = self.filename
-       gmt_orig = self.get_csv_GMT_offset(self.header)
+        df.index.rename('RecNum', inplace=True)
 
-       f = open(csvname, 'w')
-       header_str = '%s processed on %s UTC by %s v%s. Orig. record GMT %.0f. Output file %s\n'%(fname, t_exp, prog, prog_v, gmt_orig, csvname)
-       f.write(header_str)
-       f.close()
-       
-       with open(csvname, mode='a') as f:
-            df.to_csv(f, columns=export_col, mode='a', date_format='%Y-%m-%d %H:%M', float_format='%g', line_terminator='\n')
+        t_exp = pd.datetime.now(tz=pytz.utc).strftime('%Y-%m-%d %H:%M')
+        prog = __name__
+        prog_v = __version__
+        fname = self.filename
+        gmt_orig = self.get_csv_GMT_offset(self.header)
+
+        header_str = '%s processed on %s UTC by %s v%s. Orig. record GMT %.0f. Output file %s\n'%(fname, t_exp, prog,
+            prog_v, gmt_orig, csvname)
+        with open(csvname, 'w') as f:
+            f.write(header_str)
+
+        with open(csvname, mode='a') as f:
+            df.to_csv(f, columns=export_col, mode='a', date_format='%Y-%B-%d %H:%M', float_format='%g',
+                      line_terminator='\n')
 
     def set_data_GMT_offset(self, hr_offset):
         """
@@ -327,12 +397,12 @@ class HOBOdata:
         :param unit: keyword argument. str defining desired unit. Default is 'C'
         """
 
-        df = self.data
+        df = self.data[col].astype('float32')
 
         if unit == 'C':
-            df[col] = self.temp_F_to_C(df[col]) if not self.is_temp_celsius() else df[col]
+            df = df if self.is_temp_celsius() else self.temp_F_to_C(df)
 
-        self.data = df
+        self.data[col] = df
 
     def is_intensity_lux(self):
         """
@@ -360,12 +430,17 @@ class HOBOdata:
         :param col: keyword argument. str. Name of column containing light intensity data. Defaults to 'Intensity'.
         :param unit: keyword argument. str defining desired units. Default is 'Lux' (SI)
         """
+        df = self.data[col]
 
-        df = self.data
+        if not df._is_numeric_mixed_type:
+            # if commas are used in the thousands place, remove, before converting to float
+            df = df.str.replace(',', '')
+        df = df.astype('float32')
+
         if unit.lower() == 'lux':
-            df[col] = self.intensity_lumft2_to_lux(df[col]) if not self.is_intensity_lux() else df[col]
+            df = df if self.is_intensity_lux() else self.intensity_lumft2_to_lux(df)
 
-        self.data = df
+        self.data[col] = df
 
     def format_QAQC_data(self, units='SI', tz=-8, tstep='5min'):
         """
