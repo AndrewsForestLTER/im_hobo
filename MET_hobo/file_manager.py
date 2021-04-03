@@ -18,7 +18,7 @@ local, it will create a final directory which duplicates file names from the sou
 import hobo_qaqc, subprocess
 from sys import platform
 from os import listdir, makedirs, remove
-from os.path import isdir, basename, isfile, abspath
+from os.path import isdir, basename, isfile, abspath, normpath, join
 from datetime import datetime
 import zipfile as zp
 from numpy import unique
@@ -60,15 +60,21 @@ class FileHandling:
             self.map_fname2dir = map_fname2dir
         # save directory paths to class instance
         try:
-            wdir = dir_local_processing
+            # normpath converts /, \\ and \ to os specific path separators
+            # normpath will not convert special characters \t, \r, \n, \x, etc.
+            wdir = normpath(dir_local_processing)
             self.wdir = wdir
-            self.final_dir = dir_final_storage
-            self.src_dir = dir_source_files
+            self.final_dir = normpath(dir_final_storage)
+            self.src_dir = normpath(dir_source_files)
 
             self.time_step = time_step
         except NameError:
-            print ('Ooops!!!\nYou forgot to setup ./MET_hobo/file_path.config')
-            raise SystemExit
+            raise SystemExit('Ooops!!!\nYou forgot to setup ./MET_hobo/file_path.config')
+
+        # Check paths for special characters like tab or newline (\t, \n)
+        for d in [wdir, self.final_dir, self.src_dir]:
+            if self._is_spec_char_in_path(d):
+                raise SyntaxError('Special character used in file path\nUse / NOT \\ \n{}'.format(d))
 
         self.logs = []
 
@@ -88,28 +94,46 @@ class FileHandling:
         else:
             raise OSError('This module does not support %s at this time\n'%OS)
 
-        data_dir = wdir + '_data/'
+        data_dir = join(wdir, '_data')
         self._mkdirs_exist_ok(data_dir)
         self.data_dir = data_dir
 
-        processed = wdir + '_processed/'
+        processed = join(wdir, '_processed')
         self._mkdirs_exist_ok(processed)
         self.proc_dir = processed
 
         # whenever, the process exits (errors/complete) write log
         atexit.register(self.write_log)
 
-
-    def _mkdirs_exist_ok(self, dpath):
+    @staticmethod
+    def _mkdirs_exist_ok(dpath):
         """
         Private function. Obsolete in Python >=3.2. Create directory if does not exist.
 
         :param dpath: str. Absolute path to directory.
 
         .. todo::
-        In update to >=3.2, mkdirs(exist_ok=True)
+            In update to >=3.2, mkdirs(exist_ok=True)
         """
         makedirs(dpath) if not isdir(dpath) else False
+
+    @staticmethod
+    def _is_spec_char_in_path(path_name):
+        """
+        Search for special characters in file path. Returns True if invalid character is found. Else returns False.
+
+        \ is a special escape character in DOS, UNIX, regex, Python... but it is also the path separator in windows, so
+        this can lead to lots of confusion
+
+        :param path_name: str containing path name
+        :return: Boolean
+        """
+        spec_char = ['\n', '\r', '\t', '\a', '\f', '\v', '\b', '\n', '\1', '\2', '\3', '\4', '\5', '\6', '\7', '\0']
+        for this_char in spec_char:
+            if this_char in path_name:
+                return True
+
+        return False
 
     def _get_projname(self, f):
         """
@@ -118,9 +142,8 @@ class FileHandling:
         :return: str. Project name
         """
         fname2dir = self.map_fname2dir
-        name_list = [fname2dir[k] for k in fname2dir.keys() if k in f.split('_')[0]]
+        name_list = [fname2dir[k] for k in fname2dir.keys() if k in f.split('_')[0].split(' ')[0]]
         return name_list[0] if name_list else 'UnknownProject'
-
 
     def set_log_header(self):
         """
@@ -143,7 +166,7 @@ class FileHandling:
         cp = self.copy
 
         # Copy files from server to local machine (or to processing folder)
-        cmd = '%s %s %s %s'%(cp['cmd'], self.src_dir, self.data_dir, cp['opt_mirror_all'])
+        cmd = '%s "%s" "%s" %s'%(cp['cmd'], self.src_dir, self.data_dir, cp['opt_mirror_all'])
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.logs.extend(proc.communicate())
 
@@ -169,10 +192,10 @@ class FileHandling:
                 data_files.extend(oswalk)
             else:
                 # strip file path and extension, and read first segment from file name. E.g. RS05 from path/RS05_*.zip
-                sites.append(f.split(sep)[-1].split('_')[0].split('.')[0])
-                fp = abspath(fdata + f if not isfile(f) else f)
+                fp = abspath(f if isfile(f) else join(fdata, f))
                 if f.endswith('.csv'):
                     index_files['.csv'].append(fp)
+                    sites.append(f.split(sep)[-1].split('_')[0].split(' ')[0].split('.')[0])
                 elif f.endswith('.hobo'):
                     index_files['.hobo'].append(fp)
                 elif f.endswith('.log'):
@@ -203,7 +226,7 @@ class FileHandling:
         fproc = []
         for f in fcsv:
             q = hobo_qaqc.HOBOdata()
-            q.reformat_HOBO_csv(f, proc_dir + basename(f), tstep=time_step, units=units, tz=tz)
+            q.reformat_HOBO_csv(f, join(proc_dir, basename(f)), tstep=time_step, units=units, tz=tz)
             q = None
 
             fproc.append(f + '\n')
@@ -237,7 +260,7 @@ class FileHandling:
             site = f.split(sep)[-1].split('_')[0].split('.')[0]
             fname = basename(f)
 
-            fzip = proc_dir + site + '_' + date + '.zip'
+            fzip = join(proc_dir, site + '_' + date + '.zip')
             with zp.ZipFile(fzip, 'a') as zhobo:
                 zhobo.write(f, fname, compress_type=zp.ZIP_DEFLATED)
 
@@ -261,7 +284,7 @@ class FileHandling:
         cp = self.copy
 
         # Copy files from server to local machine (or to processing folder)
-        cmd = '%s %s %s %s'%(cp['cmd'], self.proc_dir, self.final_dir, cp['opt_cut_files'])
+        cmd = '%s "%s" "%s" %s'%(cp['cmd'], self.proc_dir, self.final_dir, cp['opt_cut_files'])
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.logs.extend(proc.communicate())
 
@@ -270,7 +293,7 @@ class FileHandling:
         Call OS specific system command to  copy desired files from temporary working directory to final storage.
         Selects files by site using wildcard selection.
 
-        **Example:**
+        Example::
 
             `cp <wdir/_processed/site*>  <dir_final_storage/proj_name/site_name/subdir>`
 
@@ -313,11 +336,14 @@ class FileHandling:
             
             storage = fin_dir + sep + subdir
             '''
-            storage = fin_dir + sep + prj + sep + s + sep + subdir
+            if isfile(s):
+                storage = fin_dir + sep + subdir
+            else:
+                storage = fin_dir + sep + prj + sep + s + sep + subdir
             fnc_mkdirs_exists(storage)
 
             # Cut files from local machine (or processing folder) to final storage (server)
-            cmd = '%s %s %s %s %s'%(cp['cmd'], loc, storage, '"%s*"'%(basename(s)), cp['opt_cut_files'])
+            cmd = '%s "%s" "%s" %s %s'%(cp['cmd'], loc, storage, '%s*'%(basename(s)), cp['opt_cut_files'])
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             logs.extend(proc.communicate())
 
@@ -397,13 +423,14 @@ class FileHandling:
         date = self.start_date
         logs = self.logs
 
-        self._mkdirs_exist_ok(fin_dir + '/logs')
+        self._mkdirs_exist_ok(join(fin_dir, 'logs'))
 
-        flog = fin_dir + '/logs/hobo_qaqc_' + date + '.log'
+        flog = join(fin_dir, 'logs/hobo_qaqc_' + date + '.log')
         with open(flog, 'a') as f:
             f.writelines(logs)
 
-    def _log_chg(self, proc, start, end, dir_frm, dir_to, tot_cnt, chg_cnt, f_list):
+    @staticmethod
+    def _log_chg(proc, start, end, dir_frm, dir_to, tot_cnt, chg_cnt, f_list):
         """
         Private function. Creates a list of strings to add bunches of files to a log
         :param proc: str. What process was preformed
@@ -498,7 +525,7 @@ class FileHandling:
                 self.logs.extend(fproc)
 
             if self.files['.log'] != []:
-                fproc = self.copy_selected_to_site_dir(self.files['.log'], 'logs', self.data_dir)
+                fproc = self.copy_selected_to_site_dir(['.log'], 'logs', self.data_dir)
                 self.logs.extend(fproc)
 
         else:

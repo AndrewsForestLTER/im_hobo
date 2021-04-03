@@ -92,7 +92,19 @@ Run the Program
 ================
 Edit file_path.config
 ---------------------
-You must define the three file directories (source, working, final) and define the timestep of the data being processed.
+You must define the three file directories (source, working, final) and define the timestep of the data being
+processed. Take care to use ``\\`` for Windows file paths or ``/`` which will work on any operating system. NEVER use
+``\`` which is a special character; example:
+
+.. code-block:: python
+
+    In[36]: print('c:\new\forest\temp\nc:\\new\\forest\\temp')
+    Out[36]: c:
+            eworest	emp
+            c:\new\forest\temp
+
+By default, this file should be located in the top directory of the repository. However, the user can provide a path to
+this file as a keyword variable in :meth:`file_manager.FileHandling.manage`.
 
 Accessing the Methods
 ---------------------
