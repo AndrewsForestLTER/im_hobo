@@ -24,7 +24,7 @@ Optional parameter.
 This Python dictionary_ is used to map to multiple final storage directories. The key (left side of : ) is an identifying string of
 characters that will be in every file name. The values (right side of : ) are a project name associated with those
 files. This will then place all identified files into 
-``<dir_final_storage>//<value, projname right of "_">//<key, filename left of "_">//<filename>``
+``<dir_final_storage>/<value, projname right of "_">/<key, filename left of "_">/<filename>``
 
 Example::
 	
@@ -32,7 +32,7 @@ Example::
 	map_fname2dir = {'RS':'REFSTAND'} 	
 	file = 'RS12_20160901.csv'	
 	# creates 	
-	<dir_final_storage>//REFSTAND//RS12//RS12_20160901.csv
+	<dir_final_storage>/REFSTAND/RS12/RS12_20160901.csv
 	```
 
 .. _`Pandas timeseries`: https://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases

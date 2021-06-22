@@ -258,11 +258,13 @@ class HOBOdata:
                                 index_col=date_col_n)
         self.col = col
 
-    def export_to_GCE_csv(self, csvname):
+    def export_to_GCE_csv(self, csvname, units, tz):
         """
         Export the HOBO data to a GCE_ friendly csv file
 
         :param csvname: str. Filepath to output csv file
+        :param units: str. Units of output data. Example: 'SI'.
+        :param tz: float. GMT time zone of output data series. Example: -8.
 
         .. _GCE : https://gce-lter.marsci.uga.edu/public/im/tools/data_toolbox.htm
         """
@@ -301,15 +303,16 @@ class HOBOdata:
         prog = __name__
         prog_v = __version__
         fname = self.filename
-        gmt_orig = self.get_csv_GMT_offset(self.header)
+        tz_orig = self.get_csv_GMT_offset(self.header)
 
-        header_str = '%s processed on %s UTC by %s v%s. Orig. record GMT %.0f. Output file %s\n'%(fname, t_exp, prog,
-            prog_v, gmt_orig, csvname)
+        header_str = '{fname} processed on {t_exp} UTC by {prog} v{prog_v}. Orig. record GMT {tz_orig}. Output file: \
+        GMT {tz}, {units} units, {csvname}\n'.format(**locals())
+
         with open(csvname, 'w') as f:
             f.write(header_str)
 
         with open(csvname, mode='a') as f:
-            df.to_csv(f, columns=export_col, mode='a', date_format='%Y-%B-%d %H:%M', float_format='%g',
+            df.to_csv(f, columns=export_col, mode='a', date_format='%Y-%m-%d %H:%M', float_format='%g',
                       line_terminator='\n')
 
     def set_data_GMT_offset(self, hr_offset):
@@ -493,7 +496,7 @@ class HOBOdata:
         else:
             csvname = outfname
 
-        self.export_to_GCE_csv(csvname)
+        self.export_to_GCE_csv(csvname, units, tz)
 
 
 if __name__ == "__main__":
@@ -505,4 +508,4 @@ if __name__ == "__main__":
     x.load_csv_data('E:\workspace\sensors/verify\hobo_tests\RS12_2015_180_1___test.csv')
     x.format_timezone(-8)
     x.format_temp()
-    x.export_to_GCE_csv('E:\workspace\sensors/verify\hobo_tests\New_outtest.csv')
+    x.export_to_GCE_csv('E:\workspace\sensors/verify\hobo_tests\\New_outtest.csv')
