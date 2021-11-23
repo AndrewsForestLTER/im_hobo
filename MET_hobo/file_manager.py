@@ -25,6 +25,9 @@ from numpy import unique
 from shutil import rmtree
 import atexit
 
+__authors__ = 'Greg Cohn'
+__version__ = '1.0'
+
 class FileHandling:
     """
     Processes all files in assigned directory for timezone, units, and timestep sync, and converts values where

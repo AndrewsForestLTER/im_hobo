@@ -6,7 +6,7 @@ import pytz
 # date: 7/06/16
 # created by: Greg Cohn
 __authors__ = 'Greg Cohn'
-__version__ = '0.1'
+__version__ = '1.0'
 
 
 def _get_header_line(header, lineno, sep):
