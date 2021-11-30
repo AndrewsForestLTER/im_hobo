@@ -20,23 +20,23 @@ Release Notes
 -------------
 * 1.0- development finalized 11/22/21
     * Released after beta testing in production QA workflow for bird datasets.
-    * What's new:
+    * What's new: 
         * Allow more flexible directory structures
         * Handle a wider range of input csv formats
         * Improve error checks and clarify explanations when warnings occur
             * extra checks for filepath errors
             * extra checks for header formatting
-        * Allow `./config` location to be specified at the command line
-        * Allow command line override of `./config` settings (time zone, units, etc.)
+        * Allow `filepath.config` location to be specified at the command line
+        * Allow command line override of `filepath.config` settings (time zone, units, etc.)
         * Adjust for package updates for final python 2.x states
 * 0.2A- Released 4/16/18
     * Beta version on development branch for integration in info management work flow
-    * What's new:
+    * What's new: 
         * Added file management for processing large, multi-project, server-based directories
         * Add processing for hobos without light intensity
         * Add processing for different time steps
         * Add Sphinx docs
-        * Add setting control through `./config` file
+        * Add setting control through `filepath.config` file
 * BetaV0.2_hobo_only- Released 1/17/2018
     * Fork from *verify* repository and remove all modules that do not deal with hobo files
 * BetaV0.1_module- Released 1/17/2018
