@@ -46,7 +46,10 @@ class HOBOdata:
     Handles csv files exported from the HoboWare program. The native format for HOBO loggers is a .hobo file. This
     proprietary binary file is not handled here and must be converted to a csv.
 
-    This class syncs timesteps, checks time zones, and units, and converts where needed.
+    This class syncs timesteps, checks time zones and units (and converts where needed) and strips gratuitous columns.
+
+    To expand included data columns, add to the list `export_col` in :meth:`HOBOdata.export_to_GCE_csv()` and add
+    QA methods in :meth:`HOBOdata.format_QAQC_data()`
 
     .. _HOBO : http://www.onsetcomp.com/hobo-data-loggers
     """
@@ -283,8 +286,8 @@ class HOBOdata:
              'End Of File (LGR S/N: 10335619)'
         '''
         export_col = ['Date']
-        export_col.append('Temp') if 'Temp' in col else None
-        export_col.append('Intensity') if 'Intensity' in col else None
+        for c in ['Temp', 'Intensity']:
+            export_col.append(c) if c in col else None
         data = self.data
         df = data.dropna(subset=export_col[1:])
         data = None
