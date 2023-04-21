@@ -157,7 +157,10 @@ class HOBOdata:
         :return: str with single letter defining units for temperature.
         """
         deg = findall('\xb0[^ ",]*', header[lineno])
-        return deg[-1]
+        if deg:
+            return deg[-1]
+        else:
+            raise ImportError('No temperature units found in header\n')
 
     def get_csv_intensity_unit(self, header, lineno=-1):
         """
@@ -448,13 +451,13 @@ class HOBOdata:
 
         self.data[col] = df
 
-    def format_QAQC_data(self, units='SI', tz=-8, tstep='5min'):
+    def format_QAQC_data(self, units='SI', tz=-8, tstep=None):
         """
         Reformat the data using basic QAQC for SI or US units and time zone consistency regardless of daylight savings.
 
         :param units: str. keyword argument. The desired system of units. Default is 'SI'.
         :param tz: flt. keyword argument. The desired time zone as an offset from Greenwich Mean Time. Default is -8 (PST)
-        :param tstep: keyword argument. Interval to round time stamps to. Default '5min'.
+        :param tstep: keyword argument. Interval to round time stamps to. Default None. If None, the timestep is not synced.
 
         .. Note::
             tstep is input to the function :meth:`HOBOdata.format_sync_timestep()`. Valid types are listed there.
@@ -468,8 +471,9 @@ class HOBOdata:
 
         self.format_timezone(tz)
 
-        # sync time to correct time intervals
-        self.format_sync_timestep(tstep)
+        if tstep:
+            # sync time to correct time intervals
+            self.format_sync_timestep(tstep)
 
     def reformat_HOBO_csv(self, infname, outfname=None, units='SI', tz=-8, tstep='5min'):
         """
