@@ -48,6 +48,9 @@ Accepted File Format
 There are many different export options for converting .hobo files to .csv in HOBOware, however not all formats can
 be processed by this module.
 
+A set of acceptable file formats, and invalid file formats are provided as an example in this respository's
+`downloads <https://bitbucket.org/hjandrews/im_hobo/downloads/tests_cases.zip>`_.
+
 Format Requirements
 -------------------
 * U.S. Date formats only: MDY or YMD
@@ -67,7 +70,29 @@ To export time zone from HOBOware:
 
 Installation
 ============
-``pip`` and ``conda install`` are not yet supported.
+``pip`` and ``conda install`` are not yet supported. However, a conda environment file is provided. To crete a python
+installation that has all necessary packages installed to run this program, including the now depreicated python
+version 2.7.x, simply install conda and type the following commands into a terminal:
+
+.. code-block:: bat
+
+    conda env create -f conda_environment.yaml
+
+    conda activate im_hobo
+
+Your screen should now display:
+
+.. code-block:: bat
+
+    (im_hobo)c:/my_work_dir/>
+
+You can now us the process described below to run the program. It will only allow you to use python 2.7.x and all
+packages listed in the :code:`conda_environment.yaml` project. To exit this python environment when you are done
+working, type:
+
+.. code-block:: bat
+
+    conda deactivate
 
 Download the source code
 ------------------------

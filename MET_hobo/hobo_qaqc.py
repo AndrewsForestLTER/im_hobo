@@ -46,7 +46,10 @@ class HOBOdata:
     Handles csv files exported from the HoboWare program. The native format for HOBO loggers is a .hobo file. This
     proprietary binary file is not handled here and must be converted to a csv.
 
-    This class syncs timesteps, checks time zones, and units, and converts where needed.
+    This class syncs timesteps, checks time zones and units (and converts where needed) and strips gratuitous columns.
+
+    To expand included data columns, add to the list `export_col` in :meth:`HOBOdata.export_to_GCE_csv()` and add
+    QA methods in :meth:`HOBOdata.format_QAQC_data()`
 
     .. _HOBO : http://www.onsetcomp.com/hobo-data-loggers
     """
@@ -154,7 +157,10 @@ class HOBOdata:
         :return: str with single letter defining units for temperature.
         """
         deg = findall('\xb0[^ ",]*', header[lineno])
-        return deg[-1]
+        if deg:
+            return deg[-1]
+        else:
+            raise ImportError('No temperature units found in header\n')
 
     def get_csv_intensity_unit(self, header, lineno=-1):
         """
@@ -283,8 +289,8 @@ class HOBOdata:
              'End Of File (LGR S/N: 10335619)'
         '''
         export_col = ['Date']
-        export_col.append('Temp') if 'Temp' in col else None
-        export_col.append('Intensity') if 'Intensity' in col else None
+        for c in ['Temp', 'Intensity']:
+            export_col.append(c) if c in col else None
         data = self.data
         df = data.dropna(subset=export_col[1:])
         data = None
@@ -445,13 +451,13 @@ class HOBOdata:
 
         self.data[col] = df
 
-    def format_QAQC_data(self, units='SI', tz=-8, tstep='5min'):
+    def format_QAQC_data(self, units='SI', tz=-8, tstep=None):
         """
         Reformat the data using basic QAQC for SI or US units and time zone consistency regardless of daylight savings.
 
         :param units: str. keyword argument. The desired system of units. Default is 'SI'.
         :param tz: flt. keyword argument. The desired time zone as an offset from Greenwich Mean Time. Default is -8 (PST)
-        :param tstep: keyword argument. Interval to round time stamps to. Default '5min'.
+        :param tstep: keyword argument. Interval to round time stamps to. Default None. If None, the timestep is not synced.
 
         .. Note::
             tstep is input to the function :meth:`HOBOdata.format_sync_timestep()`. Valid types are listed there.
@@ -465,8 +471,9 @@ class HOBOdata:
 
         self.format_timezone(tz)
 
-        # sync time to correct time intervals
-        self.format_sync_timestep(tstep)
+        if tstep:
+            # sync time to correct time intervals
+            self.format_sync_timestep(tstep)
 
     def reformat_HOBO_csv(self, infname, outfname=None, units='SI', tz=-8, tstep='5min'):
         """
