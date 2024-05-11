@@ -18,6 +18,8 @@ All files are removed from the source directory and filed for storage. File move
 
 Release Notes
 -------------
+* 1.1 - Added a conda environment facilitating easy use of this module without keeping track of continuously updating python packages.
+    * added previously private development tools used to error test any edits before release.
 * 1.0- development finalized 11/22/21
     * Released after beta testing in production QA workflow for bird datasets.
     * What's new: 
