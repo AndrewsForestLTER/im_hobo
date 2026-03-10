@@ -21,9 +21,9 @@ class FileHandling:
             self.wdir = Path(self.config['dir_local_processing']).resolve()
             self.final_dir = Path(self.config['dir_final_storage']).resolve()
             self.src_dir = Path(self.config['dir_source_files']).resolve()
-            self.time_step = self.config['time_step']
         except KeyError as e:
             raise SystemExit(f'Error: Missing required configuration: {e} in file_path.config')
+        self.time_step = self.config.get('time_step')
 
         for d in [self.wdir, self.final_dir, self.src_dir]:
             if self._is_spec_char_in_path(d):
@@ -95,9 +95,6 @@ class FileHandling:
         self.files['sites'] = list(unique(self.files['sites']))
 
     def qaqc_csv(self, time_step=None, units='SI', tz=-8):
-        if time_step is None:
-            time_step = self.time_step
-
         fproc = []
         for f in self.files['.csv']:
             q = hobo_qaqc.HOBOdata()
@@ -188,7 +185,7 @@ class FileHandling:
         if time_step is not None:
             self.logs.extend([
                 '**********************************',
-                f'\nTime step used is {time_step}\nTime step in config file was ({self.time_step}) and was overridden at terminal\n'
+                f'\nTime step used is {time_step}\nTimestamp syncing is enabled only because a time_step was explicitly provided.\n'
             ])
 
         start = datetime.now().strftime('%H:%M:%S')

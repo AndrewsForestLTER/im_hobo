@@ -2,6 +2,7 @@ import pandas as pd
 import pytz
 from pathlib import Path
 from datetime import datetime
+from io import StringIO
 import re
 
 class HOBOdata:
@@ -11,6 +12,7 @@ class HOBOdata:
         self.filename = ''
         self.col = []
         self.sep = ''
+        self.filtered_lines = []
 
     def load_csv_data(self, file_path: Path) -> None:
         """Load csv file output by HOBO pendants into a Pandas DataFrame."""
@@ -36,8 +38,14 @@ class HOBOdata:
             seen.add(col_names[-1])
         
         # Read the CSV file without parsing dates
-        self.data = pd.read_csv(file_path, delimiter=self.sep, 
-                                skiprows=skip_nrows, names=col_names)
+        self.data = pd.read_csv(
+            StringIO(''.join(self.filtered_lines)),
+            delimiter=self.sep,
+            skiprows=skip_nrows,
+            names=col_names
+        )
+        if self.data.empty:
+            print(f"Warning: No data rows remain in {file_path} after removing lines containing 'Logged'.")
         
         # Convert the date column to datetime after loading the data
         input_date_format = '%m/%d/%y %I:%M:%S %p'
@@ -56,19 +64,28 @@ class HOBOdata:
     def read_csv_header(self, file_path: Path):
         """Read the header lines from the beginning of a file."""
         self.filename = str(file_path)
-        n_lines = self.get_header_nlines(file_path)
+        self.filtered_lines = self.get_filtered_lines(file_path)
+        n_lines = self.get_header_nlines(self.filtered_lines)
         if 0 < n_lines < 4:
-            with file_path.open() as f:
-                self.header = [next(f) for _ in range(n_lines)]
+            self.header = self.filtered_lines[:n_lines]
         else:
             raise ValueError(f'This file does not have a header that matches a recognized HOBOWARE format\nheader n_lines == {n_lines}')
 
-    def get_header_nlines(self, file_path: Path) -> int:
-        """Estimate how many header lines exist in a file."""
+    def get_filtered_lines(self, file_path: Path) -> list:
+        """Read file lines, dropping any line containing the text 'Logged'."""
         with file_path.open() as f:
-            for i, line in enumerate(f):
-                if sum(1 for char in line if char.isalpha()) <= 8:
-                    return i
+            return [line for line in f if 'logged' not in line.lower()]
+
+    def get_header_nlines(self, lines: list) -> int:
+        """Estimate how many header lines exist in a file."""
+        for i, line in enumerate(lines):
+            if sum(1 for char in line if char.isalpha()) <= 8:
+                return i
+        # Some HOBO exports can become header-only after removing rows that
+        # contain "Logged". In that case we still want to accept the standard
+        # two-line header rather than failing the whole batch.
+        if len(lines) >= 2 and 'date time' in lines[1].lower():
+            return 2
         return 0
 
     def get_delimiter(self, header: list, lineno: int = -1) -> str:
@@ -123,6 +140,7 @@ class HOBOdata:
             raise ValueError("DataFrame index is not a DatetimeIndex. Cannot perform time sync operations.")
 
         self.data.index = self.data.index.ceil(n_min)
+        self.data['Date'] = self.data.index
 
     def format_QAQC_data(self, units='SI', tz=-8, tstep=None):
         """Reformat the data using basic QAQC for SI or US units and time zone consistency."""
@@ -221,14 +239,18 @@ class HOBOdata:
 
         t_exp = datetime.now(tz=pytz.utc).strftime('%Y-%m-%d %H:%M')
         tz_orig = self.get_csv_GMT_offset(self.header)
-        header_str = f'{self.filename} processed on {t_exp} UTC by {__name__} v{__version__}. Orig. record GMT {tz_orig}. Output file: GMT {tz}, {units} units, {csvname}\n'
+        header_str = (
+            f'{self.filename} processed on {t_exp} UTC by {__name__} v{__version__}. '
+            f'Orig. record GMT {self.format_gmt_offset(tz_orig)}. '
+            f'Output file: GMT {self.format_gmt_offset(tz)}, {units} units, {csvname}\n'
+        )
 
         with csvname.open('w') as f:
             f.write(header_str)
             df.to_csv(f, columns=export_col, date_format='%Y-%m-%d %H:%M:%S', float_format='%g', lineterminator='\n')
 
     def reformat_HOBO_csv(self, infname: Path, outfname: Path = None, units: str = 'SI', 
-                          tz: float = -8, tstep: str = '5min') -> None:
+                          tz: float = -8, tstep: str = None) -> None:
         """Import a csv file output by HoboWare software, process it, and export to a GCE friendly format."""
         self.load_csv_data(infname)
         self.format_QAQC_data(units=units, tz=tz, tstep=tstep)
@@ -238,6 +260,15 @@ class HOBOdata:
         
         self.export_to_GCE_csv(outfname, units, tz)
 
+    @staticmethod
+    def format_gmt_offset(hr_offset):
+        """Format timezone offset hours as +/-HHMM for export headers."""
+        total_minutes = int(round(float(hr_offset) * 60))
+        sign = '+' if total_minutes >= 0 else '-'
+        total_minutes = abs(total_minutes)
+        hours, minutes = divmod(total_minutes, 60)
+        return f'{sign}{hours:02d}{minutes:02d}'
+
 # Add these variables at the end of the file
-__version__ = '2.0'
+__version__ = '3.0'
 __name__ = 'hobo_qaqc'

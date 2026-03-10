@@ -132,8 +132,9 @@ Run the Program
 ================
 Edit file_path.config
 ---------------------
-You must define the three file directories (source, working, final) and define the timestep of the data being
-processed. Take care to use ``\\`` for Windows file paths or ``/`` which will work on any operating system. NEVER use
+You must define the three file directories (source, working, final). Timestamp syncing is disabled by default in this
+version and only runs when a ``time_step`` is explicitly passed at runtime. Take care to use ``\\`` for Windows file
+paths or ``/`` which will work on any operating system. NEVER use
 ``\`` which is a special character; example:
 
 .. code-block:: python
