@@ -97,7 +97,7 @@ class FileHandling:
     def qaqc_csv(self, time_step=None, units='SI', tz=-8):
         fproc = []
         for f in self.files['.csv']:
-            q = hobo_qaqc.HOBOdata()
+            q = hobo_qaqc.HOBOdata(logs=self.logs)
             q.reformat_HOBO_csv(f, self.proc_dir / f.name, tstep=time_step, units=units, tz=tz)
             fproc.append(str(f) + '\n')
 

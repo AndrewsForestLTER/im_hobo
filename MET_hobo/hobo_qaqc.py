@@ -6,7 +6,8 @@ from io import StringIO
 import re
 
 class HOBOdata:
-    def __init__(self):
+    def __init__(self, *, logs: list[str]):
+        self._logs = logs
         self.header = []
         self.data = pd.DataFrame()
         self.filename = ''
@@ -45,21 +46,43 @@ class HOBOdata:
             names=col_names
         )
         if self.data.empty:
-            print(f"Warning: No data rows remain in {file_path} after removing lines containing 'Logged'.")
+            msg = f"Warning: No data rows found in {file_path} after removing lines containing 'Logged'.\n"
+            self._logs.append(msg)
+            print(msg)
         
-        # Convert the date column to datetime after loading the data
-        input_date_format = '%m/%d/%y %I:%M:%S %p'
-        self.data[date_col_n] = pd.to_datetime(self.data[date_col_n], format=input_date_format, errors='coerce')
-        
-        # Set the index to the date column, but keep the date column in the DataFrame
-        self.data.set_index(date_col_n, inplace=True, drop=False)
+        # Parse and validate the datetime column, and set it as the index      
+        self.data = self._set_datetime_index(self.data, date_col_n)
         
         # Update the self.col attribute with the new column names
         self.col = col_names
 
+    def _set_datetime_index(self, data: pd.DataFrame, date_col_n: str) -> pd.DataFrame:
+        """Set the DataFrame index to the datetime column."""
+        input_date_format = '%m/%d/%y %I:%M:%S %p'
+        data[date_col_n] = pd.to_datetime(data[date_col_n], format=input_date_format, errors='coerce')
+        # Set the index to the date column, but keep the date column in the DataFrame
+        data = data.set_index(date_col_n, drop=False)
+        # Check parsed dates for validity
+        data = self._validate_dates(data)
+        return data
+
+    def _validate_dates(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Validate the datetime index and drop or warn as needed."""
+        # Drop any dates after the current date
+        future_dates = data.index > datetime.now()
+        if future_dates.any():
+            data = data[~future_dates]
+            msg = f"Warning: Dropping {future_dates.sum()} rows with invalid future dates in {self.filename}.\n"
+            self._logs.append(msg)
+            print(msg)
+
         # Check if any dates failed to parse
-        if self.data.index.isna().any():
-            print(f"Warning: Some dates in {file_path} could not be parsed.")
+        if data.index.isna().any():
+            msg = f"Warning: Some dates in {self.filename} could not be parsed.\n"
+            self._logs.append(msg)
+            print(msg)
+
+        return data
 
     def read_csv_header(self, file_path: Path):
         """Read the header lines from the beginning of a file."""
