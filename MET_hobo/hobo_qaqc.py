@@ -45,13 +45,14 @@ class HOBOdata:
             skiprows=skip_nrows,
             names=col_names
         )
+        
+        # Parse and validate the datetime column, and set it as the index      
+        self.data = self._set_datetime_index(self.data, date_col_n)
+        
         if self.data.empty:
             msg = f"Warning: No data rows found in {file_path} after removing lines containing 'Logged'.\n"
             self._logs.append(msg)
             print(msg)
-        
-        # Parse and validate the datetime column, and set it as the index      
-        self.data = self._set_datetime_index(self.data, date_col_n)
         
         # Update the self.col attribute with the new column names
         self.col = col_names
