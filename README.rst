@@ -171,3 +171,17 @@ To manually control time step, units, or time zone **from the terminal**:
 
     rem edit QAQC settings of batch from DOS
     .\>python -c "from file_manager import FileHandling; FileHandling().manage(time_step='20min')"
+
+CSV Date Summary GUI
+====================
+The repository also includes a small GUI utility for reviewing the date range in a folder of CSV files. It scans each
+``.csv`` file in the selected directory and reports filename, start date, end date, record count, and status.
+
+From the repository root:
+
+.. code-block:: bat
+
+    python MET_hobo\csv_date_summary_gui.py
+
+Use **Browse...** to select a folder, **Scan** to load the file summaries, and **Save Summary CSV** to export the
+results.

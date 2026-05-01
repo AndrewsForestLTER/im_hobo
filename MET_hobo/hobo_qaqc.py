@@ -6,6 +6,16 @@ from io import StringIO
 import re
 
 class HOBOdata:
+    # Ordered list of timestamp formats produced by HOBOware exports.
+    # Both 2-digit (%y) and 4-digit (%Y) year variants are included because
+    # HOBOware has used both across firmware/software versions.
+    HOBO_DATE_FORMATS = (
+        '%m/%d/%y %I:%M:%S %p',   # 06/23/21 05:20:00 AM   (2-digit year, 12-hr)
+        '%m/%d/%Y %I:%M:%S %p',   # 06/23/2021 05:20:00 AM (4-digit year, 12-hr)
+        '%m/%d/%y %H:%M:%S',      # 06/23/21 05:20:00      (2-digit year, 24-hr)
+        '%m/%d/%Y %H:%M:%S',      # 06/23/2021 05:20:00    (4-digit year, 24-hr)
+    )
+
     def __init__(self, *, logs: list[str]):
         self._logs = logs
         self.header = []
@@ -58,9 +68,30 @@ class HOBOdata:
         self.col = col_names
 
     def _set_datetime_index(self, data: pd.DataFrame, date_col_n: str) -> pd.DataFrame:
-        """Set the DataFrame index to the datetime column."""
-        input_date_format = '%m/%d/%y %I:%M:%S %p'
-        data[date_col_n] = pd.to_datetime(data[date_col_n], format=input_date_format, errors='coerce')
+        """Set the DataFrame index to the datetime column.
+
+        Tries each format in HOBO_DATE_FORMATS in order and uses the first
+        one that successfully parses at least one non-null value. Falls back
+        to pandas inference if none of the explicit formats succeed.
+        """
+        parsed = None
+        used_fmt = None
+
+        for fmt in self.HOBO_DATE_FORMATS:
+            candidate = pd.to_datetime(data[date_col_n], format=fmt, errors='coerce')
+            if candidate.notna().any():
+                parsed = candidate
+                used_fmt = fmt
+                break
+
+        if parsed is None:
+            # Last resort: let pandas infer the format
+            parsed = pd.to_datetime(data[date_col_n], errors='coerce')
+            used_fmt = 'inferred'
+
+        data[date_col_n] = parsed
+        self._logs.append(f'Timestamp format detected: {used_fmt}\n')
+
         # Set the index to the date column, but keep the date column in the DataFrame
         data = data.set_index(date_col_n, drop=False)
         # Check parsed dates for validity
