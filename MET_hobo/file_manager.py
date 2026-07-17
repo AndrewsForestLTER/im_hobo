@@ -6,6 +6,8 @@ from numpy import unique
 import shutil
 import atexit
 import ast
+import os
+import stat
 
 __authors__ = 'Greg Cohn'
 __version__ = '2.0'
@@ -62,6 +64,14 @@ class FileHandling:
         spec_char = '\n\r\t\a\f\v\b\0'
         return any(char in str(path) for char in spec_char)
 
+    @staticmethod
+    def _rmtree(path):
+        """Remove a directory tree, handling Windows read-only files."""
+        def _on_error(func, p, exc_info):
+            os.chmod(p, stat.S_IWRITE)
+            func(p)
+        shutil.rmtree(path, onerror=_on_error)
+
     def _get_projname(self, f):
         fname2dir = self.map_fname2dir
         name = Path(f).stem.partition('_')[0].partition(' ')[0]
@@ -77,7 +87,9 @@ class FileHandling:
         self.logs.extend(logs)
 
     def copy_src_to_wdir(self):
-        shutil.copytree(self.src_dir, self.data_dir, dirs_exist_ok=True)
+        if self.data_dir.exists():
+            self._rmtree(self.data_dir)
+        shutil.copytree(self.src_dir, self.data_dir)
 
     def index_files(self):
         for path in self.data_dir.rglob('*'):
@@ -115,7 +127,10 @@ class FileHandling:
         return zproc, len(self.files['.hobo']), len(zproc) // 2
 
     def copy_processed_to_final_dir(self):
-        shutil.copytree(self.proc_dir, self.final_dir, dirs_exist_ok=True)
+        if self.final_dir.exists():
+            self._rmtree(self.final_dir)
+            self.logs.append(f'Cleared final output directory: {self.final_dir}\n')
+        shutil.copytree(self.proc_dir, self.final_dir)
 
     def copy_selected_to_site_dir(self, file_list, subdir, loc):
         fproc = []
@@ -135,11 +150,11 @@ class FileHandling:
             '\n\nDeleting Temporary DIR from Working DIR\n************************************\n',
             f'{self.data_dir}\n'
         ])
-        shutil.rmtree(self.data_dir)
+        self._rmtree(self.data_dir)
 
         if not any(self.proc_dir.iterdir()):
             self.logs.append(f'Deleting empty processing directory: {self.proc_dir}\n')
-            shutil.rmtree(self.proc_dir)
+            self._rmtree(self.proc_dir)
         else:
             self.logs.append(f'WARNING: {self.proc_dir} is not empty. Some files may not have been processed or moved.\n')
 
