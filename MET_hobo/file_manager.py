@@ -1,4 +1,5 @@
 import hobo_qaqc
+import hobo_date_summary
 from pathlib import Path
 from datetime import datetime
 import zipfile as zp
@@ -192,6 +193,40 @@ class FileHandling:
         log.append(f'\n----------------------------\nEnd {proc}- {end}\n----------------------------\n')
         return log
 
+    def _run_dedupe(self, final_subdirs):
+        """Run hobo_date_summary dedup against final_dir, per dedupe_mode in config."""
+        dedupe_mode = self.config.get('dedupe_mode', 'off')
+        if dedupe_mode == 'off':
+            return
+
+        if final_subdirs:
+            self.logs.append(
+                'Dedupe skipped: final_subdirs=True is not supported by dedupe_mode.\n'
+            )
+            return
+
+        if dedupe_mode == 'prompt':
+            answer = input(f'Run dedupe on {self.final_dir}? [y/N]: ').strip().lower()
+            if answer != 'y':
+                self.logs.append('Dedupe skipped: user declined at prompt.\n')
+                return
+        elif dedupe_mode != 'auto':
+            self.logs.append(f"Dedupe skipped: unrecognized dedupe_mode '{dedupe_mode}'.\n")
+            return
+
+        start = datetime.now().strftime('%H:%M:%S')
+        rows = hobo_date_summary.summarize_directories([self.final_dir])
+        log_entries = hobo_date_summary.deduplicate_and_write(rows)
+        end = datetime.now().strftime('%H:%M:%S')
+
+        out_dir = hobo_date_summary.build_bulk_clean_2_path(self.final_dir)
+        truncated = sum(1 for e in log_entries if e['records_removed'] > 0)
+        total_removed = sum(e['records_removed'] for e in log_entries)
+        f_list = [f"{e['filename']}: {e['action']} ({e['records_removed']} removed)\n" for e in log_entries]
+
+        self.logs.extend(self._log_chg('dedupe', start, end, self.final_dir, out_dir, len(log_entries), truncated, f_list))
+        self.logs.append(f'--------- {total_removed} duplicate record(s) removed across all files\n')
+
     def manage(self, time_step=None, units='SI', tz=-8, final_subdirs=False):
         self.set_log_header()
         self.copy_src_to_wdir()
@@ -231,6 +266,7 @@ class FileHandling:
                 shutil.move(str(file), str(self.final_dir / file.name))
                 self.logs.append(f"Moved {file.name} to final directory\n")
 
+        self._run_dedupe(final_subdirs)
         self.del_temp_folders()
 
 if __name__ == '__main__':
