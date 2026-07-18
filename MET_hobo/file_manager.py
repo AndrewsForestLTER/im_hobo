@@ -14,6 +14,9 @@ __authors__ = 'Greg Cohn'
 __version__ = '2.0'
 
 class FileHandling:
+    _EXPECTED_FINAL_DIR_EXTS = {'.csv', '.log'}
+    _EXPECTED_FINAL_DIR_SUBDIRS = {'logs'}
+
     def __init__(self, config='../file_path.config'):
         self.start_date = datetime.now().strftime('%Y%m%d_%H%M%S')
         self.config = self.load_config(config)
@@ -127,10 +130,50 @@ class FileHandling:
 
         return zproc, len(self.files['.hobo']), len(zproc) // 2
 
-    def copy_processed_to_final_dir(self):
+    def _unexpected_final_dir_contents(self):
+        """Return entries in final_dir that aren't plain .csv/.log files or a logs/ subdir."""
+        unexpected = []
+        for entry in self.final_dir.iterdir():
+            if entry.name.startswith('.'):
+                unexpected.append(entry)
+            elif entry.is_dir():
+                if entry.name not in self._EXPECTED_FINAL_DIR_SUBDIRS:
+                    unexpected.append(entry)
+            elif entry.suffix.lower() not in self._EXPECTED_FINAL_DIR_EXTS:
+                unexpected.append(entry)
+        return unexpected
+
+    def _clear_final_dir(self, force=False):
+        """Clear final_dir, prompting for confirmation if it holds unexpected content.
+
+        final_dir is user-configurable (file_path.config), unlike data_dir/proc_dir,
+        so an rmtree here can silently destroy unrelated content if misconfigured.
+        Returns True if final_dir was cleared, False if the clear was skipped.
+        """
+        unexpected = self._unexpected_final_dir_contents()
+        if unexpected and not force:
+            listing = '\n'.join(f'  {p}' for p in sorted(unexpected, key=str))
+            answer = input(
+                f'The final output directory contains unexpected content that will be '
+                f'permanently deleted:\n{listing}\n\n'
+                f'Proceed with clearing {self.final_dir}? [y/N]: '
+            ).strip().lower()
+            if answer != 'y':
+                self.logs.append(
+                    f'WARNING: Declined to clear final output directory {self.final_dir}; '
+                    f'unexpected content present: {[str(p) for p in unexpected]}. '
+                    f'Final directory NOT cleared or updated this run.\n'
+                )
+                return False
+
+        self._rmtree(self.final_dir)
+        self.logs.append(f'Cleared final output directory: {self.final_dir}\n')
+        return True
+
+    def copy_processed_to_final_dir(self, force=False):
         if self.final_dir.exists():
-            self._rmtree(self.final_dir)
-            self.logs.append(f'Cleared final output directory: {self.final_dir}\n')
+            if not self._clear_final_dir(force=force):
+                return
         shutil.copytree(self.proc_dir, self.final_dir)
 
     def copy_selected_to_site_dir(self, file_list, subdir, loc):
@@ -227,7 +270,7 @@ class FileHandling:
         self.logs.extend(self._log_chg('dedupe', start, end, self.final_dir, out_dir, len(log_entries), truncated, f_list))
         self.logs.append(f'--------- {total_removed} duplicate record(s) removed across all files\n')
 
-    def manage(self, time_step=None, units='SI', tz=-8, final_subdirs=False):
+    def manage(self, time_step=None, units='SI', tz=-8, final_subdirs=False, force_clear=False):
         self.set_log_header()
         self.copy_src_to_wdir()
         self.index_files()
@@ -258,7 +301,7 @@ class FileHandling:
                 fproc = self.copy_selected_to_site_dir(['.log'], 'logs', self.data_dir)
                 self.logs.extend(fproc)
         else:
-            self.copy_processed_to_final_dir()
+            self.copy_processed_to_final_dir(force=force_clear)
 
         # Move any remaining files from proc_dir to final_dir
         for file in self.proc_dir.iterdir():
@@ -270,5 +313,14 @@ class FileHandling:
         self.del_temp_folders()
 
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--yes', '--force', dest='force', action='store_true',
+        help='Skip the confirmation prompt when clearing an unexpected final output directory'
+    )
+    args = parser.parse_args()
+
     mng = FileHandling()
-    mng.manage()
+    mng.manage(force_clear=args.force)
