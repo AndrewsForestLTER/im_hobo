@@ -21,6 +21,7 @@ Usage:
 """
 
 import csv
+import re
 import shutil
 import threading
 from collections import defaultdict
@@ -91,11 +92,27 @@ def find_date_column(row):
 # ── Sitecode extraction ───────────────────────────────────────────────────────
 
 def extract_sitecode(filename):
-    """Extract sitecode from HOBO filename (text before first underscore).
+    """Extract sitecode from HOBO filename.
 
-    Example: PA002_20250614.csv -> PA002
+    Handles both dataset conventions:
+        MS045: PA002_20250614.csv          -> 'PA002'
+        MV008: PA348_6.5_20260708.csv      -> 'PA348_6.5'
+
+    The trailing '_YYYYMMDD' (optionally followed by HHMM) is the download
+    date; everything before it is the sitecode. This preserves the height
+    suffix that MV008 filenames carry, without which multiple heights at
+    the same site collapse to one sitecode and dedup drops legitimate data
+    across all but the latest download.
+
+    Falls back to the first underscore-delimited token when the trailing
+    date suffix isn't present, preserving legacy behavior for filenames
+    without a date component.
     """
-    return Path(filename).stem.split('_')[0]
+    stem = Path(filename).stem
+    parts = stem.split('_')
+    if parts and re.fullmatch(r'\d{8}(\d{4})?', parts[-1]):
+        return '_'.join(parts[:-1])
+    return parts[0]
 
 
 # ── Raw file parsing ──────────────────────────────────────────────────────────
