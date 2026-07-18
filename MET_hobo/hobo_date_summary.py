@@ -290,7 +290,8 @@ def deduplicate_and_write(rows, progress_cb=None):
            with the same sitecode — those timestamps are removed from this file.
         3. All files (modified or not) are written to bulk_clean_2.
         4. Error files are copied as-is with a note in the log.
-        5. A timestamped dedup_log CSV is written to each bulk_clean_2 folder.
+        5. A timestamped dedup_log CSV is written to a logs/ subfolder of each
+           bulk_clean_2 folder (kept out of the *.csv glob used to scan for data).
 
     Returns:
         log_entries - list of dicts describing what happened to each file
@@ -466,13 +467,17 @@ def deduplicate_and_write(rows, progress_cb=None):
         })
 
     # ── Step 4: write one timestamped log per output directory ────────────────
+    # Written to a logs/ subfolder, not out_dir itself, so it isn't picked up
+    # as a data file by summarize_directories()'s *.csv glob on out_dir.
     run_ts = datetime.now().strftime('%Y%m%d_%H%M%S')
     for out_dir in written_dirs:
         dir_entries = [
             e for e in log_entries
             if build_bulk_clean_2_path(e['source_dir']) == out_dir
         ]
-        log_path = out_dir / f'dedup_log_{run_ts}.csv'
+        log_dir = out_dir / 'logs'
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = log_dir / f'dedup_log_{run_ts}.csv'
         with log_path.open('w', newline='', encoding='utf-8') as fh:
             writer = csv.DictWriter(fh, fieldnames=[
                 'filename', 'sitecode', 'source_dir',
@@ -855,7 +860,7 @@ class CsvDateSummaryApp(tk.Tk):
             'Confirm Deduplication',
             f'All files will be written to:\n\n{dir_preview}\n\n'
             f'Overlapping records will be removed from earlier files.\n'
-            f'A dedup_log CSV will be saved in each output folder.\n\n'
+            f'A dedup_log CSV will be saved in a logs/ subfolder of each output folder.\n\n'
             f'Proceed?'
         )
         if not proceed:
@@ -875,8 +880,9 @@ class CsvDateSummaryApp(tk.Tk):
             try:
                 log_entries = deduplicate_and_write(source_rows, progress_cb=_progress)
             except Exception as exc:
+                err_msg = str(exc)
                 self.after(0, lambda: (
-                    messagebox.showerror('Deduplication error', str(exc)),
+                    messagebox.showerror('Deduplication error', err_msg),
                     self._show_progress(False),
                     self._set_buttons_state('normal')
                 ))
