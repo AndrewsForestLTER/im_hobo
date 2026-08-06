@@ -15,7 +15,11 @@ __version__ = '2.0'
 
 class FileHandling:
     _EXPECTED_FINAL_DIR_EXTS = {'.csv', '.log'}
-    _EXPECTED_FINAL_DIR_SUBDIRS = {'logs'}
+    _EXPECTED_FINAL_DIR_SUBDIRS = {'logs', 'TOA5', 'parquet'}
+    _TOA5_CONFIG_KEYS = (
+        'toa5_station', 'toa5_logger_model', 'toa5_serial', 'toa5_table_name',
+        'toa5_os_version', 'toa5_program_name', 'toa5_program_sig',
+    )
 
     def __init__(self, config='../file_path.config'):
         self.start_date = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -43,6 +47,17 @@ class FileHandling:
 
         self.proc_dir = self.wdir / '_processed'
         self.proc_dir.mkdir(parents=True, exist_ok=True)
+
+        # Created on demand in qaqc_csv (bulk mode only) so proc_dir stays empty,
+        # and therefore deletable by del_temp_folders, when they're unused.
+        self.toa5_dir = self.proc_dir / 'TOA5'
+        self.parquet_dir = self.proc_dir / 'parquet'
+
+        # Strip the 'toa5_' prefix so these map directly onto export_to_toa5's kwargs.
+        self.toa5_kwargs = {
+            key[len('toa5_'):]: self.config[key]
+            for key in self._TOA5_CONFIG_KEYS if key in self.config
+        }
 
         atexit.register(self.write_log)
 
@@ -110,11 +125,21 @@ class FileHandling:
 
         self.files['sites'] = list(unique(self.files['sites']))
 
-    def qaqc_csv(self, time_step=None, units='SI', tz=-8):
+    def qaqc_csv(self, time_step=None, units='SI', tz=-8, final_subdirs=False):
+        # TOA5/parquet writers are scoped to bulk mode only for now: final_subdirs
+        # routes output by project/site via copy_selected_to_site_dir, which globs
+        # proc_dir's top level and doesn't know about these nested output dirs.
+        if not final_subdirs:
+            self.toa5_dir.mkdir(parents=True, exist_ok=True)
+            self.parquet_dir.mkdir(parents=True, exist_ok=True)
+
         fproc = []
         for f in self.files['.csv']:
             q = hobo_qaqc.HOBOdata(logs=self.logs)
             q.reformat_HOBO_csv(f, self.proc_dir / f.name, tstep=time_step, units=units, tz=tz)
+            if not final_subdirs:
+                q.export_to_toa5(self.toa5_dir / f'{f.stem}.dat', **self.toa5_kwargs)
+                q.export_to_parquet(self.parquet_dir / f'{f.stem}.parquet')
             fproc.append(str(f) + '\n')
 
         return fproc, len(self.files['.csv']), len(fproc)
@@ -282,7 +307,7 @@ class FileHandling:
             ])
 
         start = datetime.now().strftime('%H:%M:%S')
-        c_proc, c_count, cproc_count = self.qaqc_csv(time_step=time_step, units=units, tz=tz)
+        c_proc, c_count, cproc_count = self.qaqc_csv(time_step=time_step, units=units, tz=tz, final_subdirs=final_subdirs)
         end = datetime.now().strftime('%H:%M:%S')
         self.logs.extend(self._log_chg('csv reformat', start, end, self.data_dir, self.proc_dir, c_count, cproc_count, c_proc))
 
@@ -303,11 +328,14 @@ class FileHandling:
         else:
             self.copy_processed_to_final_dir(force=force_clear)
 
-        # Move any remaining files from proc_dir to final_dir
-        for file in self.proc_dir.iterdir():
-            if file.is_file():
-                shutil.move(str(file), str(self.final_dir / file.name))
-                self.logs.append(f"Moved {file.name} to final directory\n")
+        # Move any remaining files or subdirectories (e.g. TOA5/, parquet/) from
+        # proc_dir to final_dir, so proc_dir ends up empty for del_temp_folders.
+        for entry in self.proc_dir.iterdir():
+            dest = self.final_dir / entry.name
+            if entry.is_dir() and dest.exists():
+                self._rmtree(dest)
+            shutil.move(str(entry), str(dest))
+            self.logs.append(f"Moved {entry.name} to final directory\n")
 
         self._run_dedupe(final_subdirs)
         self.del_temp_folders()

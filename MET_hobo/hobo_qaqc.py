@@ -16,6 +16,12 @@ class HOBOdata:
         '%m/%d/%Y %H:%M:%S',      # 06/23/2021 05:20:00    (4-digit year, 24-hr)
     )
 
+    # format_QAQC_data only supports units='SI', so output units are always
+    # Celsius / Lux in practice; these back the TOA5 units header row (line 3).
+    TOA5_UNITS = {'Temp': 'Deg C', 'Intensity': 'lux'}
+    # HOBO records are instantaneous samples, not computed aggregates.
+    TOA5_AGGREGATION = 'Smp'
+
     def __init__(self, *, logs: list[str]):
         self._logs = logs
         self.header = []
@@ -24,6 +30,7 @@ class HOBOdata:
         self.col = []
         self.sep = ''
         self.filtered_lines = []
+        self.serial = ''
 
     def load_csv_data(self, file_path: Path) -> None:
         """Load csv file output by HOBO pendants into a Pandas DataFrame."""
@@ -31,6 +38,7 @@ class HOBOdata:
         skip_nrows = len(self.header)
         self.sep = self.get_delimiter(self.header, lineno=-1)
         self.col = self.get_csv_col(self.header, self.sep)
+        self.serial = self.get_csv_serial_number(self.header)
         date_col_i, date_col_n = self.get_timestamp_col(self.col)
         
         # Handle duplicate column names
@@ -285,6 +293,11 @@ class HOBOdata:
         """Get unit for sunlight intensity."""
         return re.findall('(?i)(Lux|lum/ft\xc2\xb2)', header[lineno])
 
+    def get_csv_serial_number(self, header, lineno=-1):
+        """Get the HOBO logger serial number (LGR S/N) from the header, if present."""
+        match = re.search(r'LGR S/N:\s*([^,)]+)', header[lineno])
+        return match.group(1).strip() if match else ''
+
     def export_to_GCE_csv(self, csvname: Path, units: str, tz: float) -> None:
         """Export the HOBO data to a GCE friendly csv file."""
         export_col = ['Date'] + [c for c in ['Temp', 'Intensity'] if c in self.col]
@@ -296,6 +309,7 @@ class HOBOdata:
         tz_orig = self.get_csv_GMT_offset(self.header)
         header_str = (
             f'{self.filename} processed on {t_exp} UTC by {__name__} v{__version__}. '
+            f'Logger S/N: {self.serial}. '
             f'Orig. record GMT {self.format_gmt_offset(tz_orig)}. '
             f'Output file: GMT {self.format_gmt_offset(tz)}, {units} units, {csvname}\n'
         )
@@ -303,6 +317,43 @@ class HOBOdata:
         with csvname.open('w') as f:
             f.write(header_str)
             df.to_csv(f, columns=export_col, date_format='%Y-%m-%d %H:%M:%S', float_format='%g', lineterminator='\n')
+
+    def export_to_toa5(self, toa5name: Path, *, station: str = '', logger_model: str = '',
+                        serial: str = None, table_name: str = '', os_version: str = '',
+                        program_name: str = '', program_sig: str = '') -> None:
+        """Export the HOBO data to a Campbell Scientific TOA5 ASCII file.
+
+        serial defaults to the logger serial number (LGR S/N) parsed from the
+        source file's header; pass an explicit value (e.g. from config) to override.
+        """
+        export_col = [c for c in ['Temp', 'Intensity'] if c in self.col]
+        serial = self.serial if serial is None else serial
+
+        header = [
+            f'"TOA5","{station}","{logger_model}","{serial}","{os_version}","{program_name}","{program_sig}","{table_name}"\n',
+            '"TIMESTAMP","RECORD",' + ','.join(f'"{c}"' for c in export_col) + '\n',
+            '"TS","RN",' + ','.join(f'"{self.TOA5_UNITS.get(c, "")}"' for c in export_col) + '\n',
+            '"","",' + ','.join(f'"{self.TOA5_AGGREGATION}"' for _ in export_col) + '\n',
+        ]
+
+        dates = self.data['Date']
+        # Sub-second precision only if any timestamp in this file actually has it,
+        # so the TIMESTAMP column stays a consistent width within a file.
+        sub_second = bool((dates.dt.microsecond != 0).any())
+        ts_fmt = '%Y-%m-%d %H:%M:%S.%f' if sub_second else '%Y-%m-%d %H:%M:%S'
+
+        with toa5name.open('w', newline='') as f:
+            f.writelines(header)
+            rows = self.data[export_col].itertuples(index=False)
+            for record, (ts, row) in enumerate(zip(dates, rows)):
+                vals = ','.join('NAN' if pd.isna(v) else f'{v:g}' for v in row)
+                f.write(f'"{ts.strftime(ts_fmt)}",{record},{vals}\n')
+
+    def export_to_parquet(self, parquet_path: Path, *, compression: str = 'snappy') -> None:
+        """Export the HOBO data to Apache Parquet, preserving dtypes and nulls."""
+        export_col = ['Date'] + [c for c in ['Temp', 'Intensity'] if c in self.col]
+        df = self.data.reset_index(drop=True)[export_col]
+        df.to_parquet(parquet_path, engine='pyarrow', compression=compression, index=False)
 
     def reformat_HOBO_csv(self, infname: Path, outfname: Path = None, units: str = 'SI', 
                           tz: float = -8, tstep: str = None) -> None:
