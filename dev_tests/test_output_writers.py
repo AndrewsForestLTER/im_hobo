@@ -6,6 +6,7 @@ self.data/self.col that reformat_HOBO_csv produces.
 """
 import pandas as pd
 import pytz
+import pyarrow.parquet as pq
 
 import hobo_qaqc
 
@@ -32,17 +33,28 @@ def test_export_to_toa5(tmp_path):
 
     q.export_to_toa5(
         out, station='MS045', logger_model='HOBO-Pendant', serial='12345',
-        table_name='Table1',
+        table_name='Table1', sitecode='PA002',
     )
 
     lines = out.read_text().splitlines()
     assert lines[0] == '"TOA5","MS045","HOBO-Pendant","12345","","","","Table1"'
-    assert lines[1] == '"TIMESTAMP","RECORD","Temp","Intensity"'
-    assert lines[2] == '"TS","RN","Deg C","lux"'
-    assert lines[3] == '"","","Smp","Smp"'
-    assert lines[4] == '"2024-06-01 00:00:00",0,12.5,100'
-    assert lines[5] == '"2024-06-01 00:15:00",1,NAN,200.5'
-    assert lines[6] == '"2024-06-01 00:30:00",2,13.25,NAN'
+    assert lines[1] == '"TIMESTAMP","RECORD","Sitecode","Temp","Intensity"'
+    assert lines[2] == '"TS","RN","","Deg C","lux"'
+    assert lines[3] == '"","","Smp","Smp","Smp"'
+    assert lines[4] == '"2024-06-01 00:00:00",0,"PA002",12.5,100'
+    assert lines[5] == '"2024-06-01 00:15:00",1,"PA002",NAN,200.5'
+    assert lines[6] == '"2024-06-01 00:30:00",2,"PA002",13.25,NAN'
+
+
+def test_export_to_toa5_sitecode_defaults_to_empty_string(tmp_path):
+    q = build_sample_hobodata()
+    out = tmp_path / 'sample.dat'
+
+    q.export_to_toa5(out)
+
+    lines = out.read_text().splitlines()
+    assert lines[1] == '"TIMESTAMP","RECORD","Sitecode","Temp","Intensity"'
+    assert lines[4] == '"2024-06-01 00:00:00",0,"",12.5,100'
 
 
 def test_export_to_toa5_serial_defaults_to_source_header(tmp_path):
@@ -88,10 +100,11 @@ def test_export_to_parquet_roundtrip(tmp_path):
     q = build_sample_hobodata()
     out = tmp_path / 'sample.parquet'
 
-    q.export_to_parquet(out)
+    q.export_to_parquet(out, sitecode='PA002')
     result = pd.read_parquet(out)
 
-    assert list(result.columns) == ['Date', 'Temp', 'Intensity']
+    assert list(result.columns) == ['Date', 'Sitecode', 'Temp', 'Intensity']
+    assert (result['Sitecode'] == 'PA002').all()
     assert pd.api.types.is_datetime64_any_dtype(result['Date'])
     assert result['Date'].dt.tz is not None
     assert result['Temp'].dtype == 'float32'
@@ -110,3 +123,26 @@ def test_export_to_parquet_roundtrip(tmp_path):
         result['Intensity'].reset_index(drop=True), q.data['Intensity'].reset_index(drop=True),
         check_names=False,
     )
+
+
+def test_export_to_parquet_sitecode_defaults_to_empty_string(tmp_path):
+    q = build_sample_hobodata()
+    out = tmp_path / 'sample.parquet'
+
+    q.export_to_parquet(out)
+    result = pd.read_parquet(out)
+
+    assert list(result.columns) == ['Date', 'Sitecode', 'Temp', 'Intensity']
+    assert (result['Sitecode'] == '').all()
+
+
+def test_export_to_parquet_embeds_units_metadata(tmp_path):
+    q = build_sample_hobodata()
+    out = tmp_path / 'sample.parquet'
+
+    q.export_to_parquet(out)
+    schema = pq.read_schema(out)
+
+    assert schema.field('Date').metadata is None
+    assert schema.field('Temp').metadata[b'units'] == b'Deg C'
+    assert schema.field('Intensity').metadata[b'units'] == b'lux'

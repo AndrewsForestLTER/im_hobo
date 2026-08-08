@@ -138,8 +138,9 @@ class FileHandling:
             q = hobo_qaqc.HOBOdata(logs=self.logs)
             q.reformat_HOBO_csv(f, self.proc_dir / f.name, tstep=time_step, units=units, tz=tz)
             if not final_subdirs:
-                q.export_to_toa5(self.toa5_dir / f'{f.stem}.dat', **self.toa5_kwargs)
-                q.export_to_parquet(self.parquet_dir / f'{f.stem}.parquet')
+                sitecode = hobo_date_summary.extract_sitecode(f.name)
+                q.export_to_toa5(self.toa5_dir / f'{f.stem}.dat', sitecode=sitecode, **self.toa5_kwargs)
+                q.export_to_parquet(self.parquet_dir / f'{f.stem}.parquet', sitecode=sitecode)
             fproc.append(str(f) + '\n')
 
         return fproc, len(self.files['.csv']), len(fproc)

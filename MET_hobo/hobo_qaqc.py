@@ -1,4 +1,6 @@
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytz
 from pathlib import Path
 from datetime import datetime
@@ -320,20 +322,22 @@ class HOBOdata:
 
     def export_to_toa5(self, toa5name: Path, *, station: str = '', logger_model: str = '',
                         serial: str = None, table_name: str = '', os_version: str = '',
-                        program_name: str = '', program_sig: str = '') -> None:
+                        program_name: str = '', program_sig: str = '', sitecode: str = '') -> None:
         """Export the HOBO data to a Campbell Scientific TOA5 ASCII file.
 
         serial defaults to the logger serial number (LGR S/N) parsed from the
         source file's header; pass an explicit value (e.g. from config) to override.
+        sitecode is a per-file text field (e.g. parsed from the filename) inserted
+        after RECORD; TIMESTAMP/RECORD remain the two TOA5-reserved field names.
         """
         export_col = [c for c in ['Temp', 'Intensity'] if c in self.col]
         serial = self.serial if serial is None else serial
 
         header = [
             f'"TOA5","{station}","{logger_model}","{serial}","{os_version}","{program_name}","{program_sig}","{table_name}"\n',
-            '"TIMESTAMP","RECORD",' + ','.join(f'"{c}"' for c in export_col) + '\n',
-            '"TS","RN",' + ','.join(f'"{self.TOA5_UNITS.get(c, "")}"' for c in export_col) + '\n',
-            '"","",' + ','.join(f'"{self.TOA5_AGGREGATION}"' for _ in export_col) + '\n',
+            '"TIMESTAMP","RECORD","Sitecode",' + ','.join(f'"{c}"' for c in export_col) + '\n',
+            '"TS","RN","",' + ','.join(f'"{self.TOA5_UNITS.get(c, "")}"' for c in export_col) + '\n',
+            '"","","' + self.TOA5_AGGREGATION + '",' + ','.join(f'"{self.TOA5_AGGREGATION}"' for _ in export_col) + '\n',
         ]
 
         dates = self.data['Date']
@@ -347,13 +351,31 @@ class HOBOdata:
             rows = self.data[export_col].itertuples(index=False)
             for record, (ts, row) in enumerate(zip(dates, rows)):
                 vals = ','.join('NAN' if pd.isna(v) else f'{v:g}' for v in row)
-                f.write(f'"{ts.strftime(ts_fmt)}",{record},{vals}\n')
+                f.write(f'"{ts.strftime(ts_fmt)}",{record},"{sitecode}",{vals}\n')
 
-    def export_to_parquet(self, parquet_path: Path, *, compression: str = 'snappy') -> None:
-        """Export the HOBO data to Apache Parquet, preserving dtypes and nulls."""
+    def export_to_parquet(self, parquet_path: Path, *, compression: str = 'snappy', sitecode: str = '') -> None:
+        """Export the HOBO data to Apache Parquet, preserving dtypes and nulls.
+
+        sitecode is a per-file text field (e.g. parsed from the filename) inserted
+        after Date, matching the Sitecode field export_to_toa5 writes.
+
+        Column units (TOA5_UNITS) are attached as a 'units' key in each field's
+        Parquet metadata, so downstream readers can label axes/columns without
+        having to know this is HOBO data.
+        """
         export_col = ['Date'] + [c for c in ['Temp', 'Intensity'] if c in self.col]
         df = self.data.reset_index(drop=True)[export_col]
-        df.to_parquet(parquet_path, engine='pyarrow', compression=compression, index=False)
+        df.insert(1, 'Sitecode', sitecode)
+        table = pa.Table.from_pandas(df, preserve_index=False)
+
+        fields = [
+            f.with_metadata({b'units': self.TOA5_UNITS[f.name].encode('utf-8')})
+            if f.name in self.TOA5_UNITS else f
+            for f in table.schema
+        ]
+        table = table.cast(pa.schema(fields, metadata=table.schema.metadata))
+
+        pq.write_table(table, parquet_path, compression=compression)
 
     def reformat_HOBO_csv(self, infname: Path, outfname: Path = None, units: str = 'SI', 
                           tz: float = -8, tstep: str = None) -> None:
