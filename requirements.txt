@@ -1,6 +1,0 @@
-pandas>=1.5.0
-pytz>=2023.3
-numpy>=1.24.0
-pathlib>=1.0.1
-matplotlib>=3.7
-pyarrow>=14.0.0

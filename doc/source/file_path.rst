@@ -1,4 +1,5 @@
 Config
 ======
 
-.. include:: ../../file_path.config
+.. literalinclude:: ../../file_path.config.example
+   :language: python

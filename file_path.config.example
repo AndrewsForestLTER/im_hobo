@@ -1,4 +1,10 @@
 """
+.. Note::
+  This is a template. Copy this file to ``file_path.config`` (in the repository
+  root, next to this file) and edit the paths and settings below for your
+  machine. ``file_path.config`` is gitignored, so your local copy and its
+  real paths are never committed.
+
 .. Warning::
   Change file paths before use!
   Variable names must match the example EXACTLY.
@@ -15,14 +21,14 @@ defined for:
   Use forward slashes (/) in file paths for cross-platform compatibility.
 """
 
-dir_source_files = "D:\\Projects\\MS045\\2026\\bulk"
-dir_local_processing = "D:/HOBO_TEMP/"
+dir_source_files = "/path/to/input"
+dir_local_processing = "/path/to/hobo_temp"
 
 # WARNING: dir_final_storage is cleared on every run.
 # Do not point this at a directory containing other files - anything
 # in this location will be deleted. Path is user-configurable but
 # the cleanup behavior is not.
-dir_final_storage = "D:\\Projects\\MS045\\2026\\bulk_clean_branch"
+dir_final_storage = "/path/to/output"
 
 # Optional legacy setting; ignored unless time_step is explicitly passed at
 # runtime, for example:
@@ -33,6 +39,12 @@ time_step = "15min"      # time_step options: 5min, 15min, 20min
 dedupe_mode = "prompt"   # "auto" = dedupe final output after each run
                          # "prompt" = ask at console before dedupe
                          # "off" (or key absent) = skip dedupe
+
+# Optional. Where dedupe_mode writes deduplicated output. If absent (the
+# default), it's a sibling of dir_final_storage named "<dir_final_storage
+# name>_dedup" -- e.g. a dir_final_storage of .../bulk_clean defaults to
+# .../bulk_clean_dedup. Set this to send dedupe output somewhere else instead.
+# dir_dedupe_output = "/path/to/dedupe_output"
 
 map_fname2dir = {"RS":"REFSTAND", "TS":"STREAMT", "PC":"PHENO"}
 

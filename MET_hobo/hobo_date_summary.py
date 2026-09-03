@@ -4,14 +4,15 @@ HOBO CSV Date Summary, Overlap Viewer, and Deduplicator
 
 Scans one or more directories of cleaned HOBO CSV files, summarizes date
 ranges by file, displays a swim lane chart showing temporal coverage and
-overlaps grouped by sitecode, and writes deduplicated files to bulk_clean_2
-alongside each source directory.
+overlaps grouped by sitecode, and writes deduplicated files to a dedupe
+output directory (see build_dedupe_output_path) alongside each source
+directory by default, or the configured dir_dedupe_output.
 
 Deduplication rule:
     Where two files share a sitecode and have overlapping timestamps, the
     earlier file loses the overlapping records. The later file is always
-    authoritative. All files (modified or not) are written to bulk_clean_2
-    so the output folder is always a complete, ready-to-process set.
+    authoritative. All files (modified or not) are written to the dedupe
+    output directory so it's always a complete, ready-to-process set.
 
 Requirements:
     pip install matplotlib
@@ -19,6 +20,15 @@ Requirements:
 Usage:
     python hobo_date_summary.py
 """
+
+if __package__ in (None, ''):
+    # Run directly, e.g. `cd MET_hobo; python hobo_date_summary.py` -- MET_hobo/ is
+    # not on sys.path as a package in this case, so put its parent there instead.
+    # (No absolute `from MET_hobo import ...` is needed here today, but this keeps
+    # the bootstrap consistent with file_manager.py for whichever runs first.)
+    import sys
+    from pathlib import Path as _Path
+    sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
 
 import csv
 import re
@@ -292,23 +302,38 @@ def compute_overlaps(rows):
 
 # ── Deduplication engine ──────────────────────────────────────────────────────
 
-def build_bulk_clean_2_path(source_dir):
-    """Return the bulk_clean_2 sibling path for a given source directory."""
-    return Path(source_dir).parent / 'bulk_clean_2'
+def build_dedupe_output_path(source_dir, configured=None):
+    """Return the dedupe output directory for a given source directory.
+
+    If `configured` is given (e.g. file_path.config's dir_dedupe_output), that
+    path is used as-is, regardless of source_dir. Otherwise defaults to a
+    sibling of source_dir named '<source_dir name>_dedup' -- e.g. a source_dir
+    of .../bulk_clean defaults to .../bulk_clean_dedup.
+    """
+    if configured is not None:
+        return Path(configured)
+    source_dir = Path(source_dir)
+    return source_dir.parent / (source_dir.name + '_dedup')
 
 
-def deduplicate_and_write(rows, progress_cb=None):
-    """Write all files to bulk_clean_2; remove overlapping timestamps from
-    earlier files where a later file for the same sitecode is authoritative.
+def deduplicate_and_write(rows, progress_cb=None, dedupe_output=None):
+    """Write all files to the dedupe output directory; remove overlapping
+    timestamps from earlier files where a later file for the same sitecode is
+    authoritative.
+
+    dedupe_output, if given, is passed as `configured` to
+    build_dedupe_output_path for every row, so all rows are written to that
+    single directory regardless of their individual source_dir. Otherwise each
+    row gets its own default sibling directory (see build_dedupe_output_path).
 
     Strategy:
         1. Group OK files by sitecode; sort each group by start_date ascending.
         2. For each file, collect every timestamp that appears in any later file
            with the same sitecode — those timestamps are removed from this file.
-        3. All files (modified or not) are written to bulk_clean_2.
+        3. All files (modified or not) are written to the dedupe output directory.
         4. Error files are copied as-is with a note in the log.
         5. A timestamped dedup_log CSV is written to a logs/ subfolder of each
-           bulk_clean_2 folder (kept out of the *.csv glob used to scan for data).
+           dedupe output folder (kept out of the *.csv glob used to scan for data).
 
     Returns:
         log_entries - list of dicts describing what happened to each file
@@ -388,7 +413,7 @@ def deduplicate_and_write(rows, progress_cb=None):
             continue
 
         src_path = row['_path']
-        out_dir = build_bulk_clean_2_path(row['source_dir'])
+        out_dir = build_dedupe_output_path(row['source_dir'], configured=dedupe_output)
         out_dir.mkdir(parents=True, exist_ok=True)
         written_dirs.add(out_dir)
         out_path = out_dir / row['filename']
@@ -462,7 +487,7 @@ def deduplicate_and_write(rows, progress_cb=None):
         if row['status'] == 'OK':
             continue
         src_path = row.get('_path')
-        out_dir = build_bulk_clean_2_path(row['source_dir'])
+        out_dir = build_dedupe_output_path(row['source_dir'], configured=dedupe_output)
         out_dir.mkdir(parents=True, exist_ok=True)
         written_dirs.add(out_dir)
 
@@ -490,7 +515,7 @@ def deduplicate_and_write(rows, progress_cb=None):
     for out_dir in written_dirs:
         dir_entries = [
             e for e in log_entries
-            if build_bulk_clean_2_path(e['source_dir']) == out_dir
+            if build_dedupe_output_path(e['source_dir'], configured=dedupe_output) == out_dir
         ]
         log_dir = out_dir / 'logs'
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -655,7 +680,7 @@ class CsvDateSummaryApp(tk.Tk):
             btn_chart.pack(side='left', padx=(8, 0))
             self._action_buttons.append(btn_chart)
 
-        btn_dedup = ttk.Button(action_frame, text='Deduplicate → bulk_clean_2',
+        btn_dedup = ttk.Button(action_frame, text='Deduplicate',
                                command=self.run_deduplication)
         btn_dedup.pack(side='left', padx=(8, 0))
         self._action_buttons.append(btn_dedup)
@@ -866,10 +891,10 @@ class CsvDateSummaryApp(tk.Tk):
             messagebox.showinfo(
                 'No overlaps found',
                 'No overlapping timestamps detected. '
-                'All files will be copied unchanged to bulk_clean_2.')
+                'All files will be copied unchanged to the dedupe output directory.')
 
         out_dirs = sorted(set(
-            str(build_bulk_clean_2_path(r['source_dir'])) for r in self.rows
+            str(build_dedupe_output_path(r['source_dir'])) for r in self.rows
         ))
         dir_preview = '\n'.join(out_dirs)
 
@@ -913,25 +938,25 @@ class CsvDateSummaryApp(tk.Tk):
         truncated = sum(1 for e in log_entries if e['records_removed'] > 0)
         total_removed = sum(e['records_removed'] for e in log_entries)
 
-        # ── Auto-rescan bulk_clean_2 ──────────────────────────────────────────
+        # ── Auto-rescan the dedupe output directory(ies) ──────────────────────
         self._show_progress(False)  # reset before rescan shows its own progress
         self.status_var.set(
-            f'Done. {total} file(s) written. Re-scanning bulk_clean_2...')
+            f'Done. {total} file(s) written. Re-scanning dedupe output...')
         self.update_idletasks()
 
-        bc2_dirs = sorted(set(
-            str(build_bulk_clean_2_path(r['source_dir'])) for r in source_rows
+        dedupe_dirs = sorted(set(
+            str(build_dedupe_output_path(r['source_dir'])) for r in source_rows
         ))
-        bc2_dirs = [d for d in bc2_dirs if Path(d).is_dir()]
+        dedupe_dirs = [d for d in dedupe_dirs if Path(d).is_dir()]
 
-        if bc2_dirs:
-            self.selected_dirs = bc2_dirs
+        if dedupe_dirs:
+            self.selected_dirs = dedupe_dirs
             self.dir_listbox.delete(0, 'end')
-            for d in bc2_dirs:
+            for d in dedupe_dirs:
                 self.dir_listbox.insert('end', d)
 
             self._show_progress(True)
-            self.status_var.set('Re-scanning bulk_clean_2...')
+            self.status_var.set('Re-scanning dedupe output...')
 
             def _progress(completed, total):
                 self.after(0, lambda c=completed, t=total: self._update_progress(c, t))
@@ -943,7 +968,7 @@ class CsvDateSummaryApp(tk.Tk):
 
             threading.Thread(target=_rescan, daemon=True).start()
         else:
-            msg = (f'Done. {total} file(s) written to bulk_clean_2. '
+            msg = (f'Done. {total} file(s) written to the dedupe output directory. '
                    f'{truncated} file(s) truncated, '
                    f'{total_removed} duplicate record(s) removed.')
             self.status_var.set(msg)
@@ -963,11 +988,11 @@ class CsvDateSummaryApp(tk.Tk):
         overlap_sites = len(set(sc for sc, _, _ in remaining_overlaps))
 
         if overlap_sites:
-            final_msg = (f'bulk_clean_2 scan complete: {ok_count} file(s). '
+            final_msg = (f'Dedupe output scan complete: {ok_count} file(s). '
                          f'\u26a0 {overlap_sites} site(s) still have overlaps '
                          f'\u2014 review Overlap Chart.')
         else:
-            final_msg = (f'bulk_clean_2 scan complete: {ok_count} file(s). '
+            final_msg = (f'Dedupe output scan complete: {ok_count} file(s). '
                          f'\u2713 No overlaps detected.')
 
         self.status_var.set(final_msg)

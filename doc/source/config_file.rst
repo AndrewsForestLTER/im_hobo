@@ -3,7 +3,13 @@ Config File
 
 Assigning directories
 ---------------------
-``MET_hobo/file_path.config``  must be **edited by each user.** It defines 3 directories:
+``file_path.config`` must be **edited by each user.** Copy ``file_path.config.example`` (in the
+repository root) to ``file_path.config`` and edit your copy — it's gitignored, so machine-specific
+paths are never committed. It's found automatically regardless of the current directory: an explicit
+path passed to ``FileHandling(config=...)`` or ``--config`` takes priority, then the
+``IM_HOBO_CONFIG`` environment variable, then the current directory, then the repository root.
+
+It defines 3 directories:
 
 * ``dir_source_files`` - QAQC will be attempted on every csv file in this directory. The module contains options for wiping original files from this directory. This can be a server path.
 * ``dir_local_processing`` -  A temporary working directory. This directory is populated during processing, and wipes all temporary files and folders when processing is complete. It is recommended that this directory be local to the machine running the module.

@@ -1,3 +1,5 @@
+from MET_hobo import __version__
+
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -6,6 +8,8 @@ from pathlib import Path
 from datetime import datetime
 from io import StringIO
 import re
+
+_MODULE_LABEL = 'hobo_qaqc'
 
 class HOBOdata:
     # Ordered list of timestamp formats produced by HOBOware exports.
@@ -310,7 +314,7 @@ class HOBOdata:
         t_exp = datetime.now(tz=pytz.utc).strftime('%Y-%m-%d %H:%M')
         tz_orig = self.get_csv_GMT_offset(self.header)
         header_str = (
-            f'{self.filename} processed on {t_exp} UTC by {__name__} v{__version__}. '
+            f'{self.filename} processed on {t_exp} UTC by {_MODULE_LABEL} v{__version__}. '
             f'Logger S/N: {self.serial}. '
             f'Orig. record GMT {self.format_gmt_offset(tz_orig)}. '
             f'Output file: GMT {self.format_gmt_offset(tz)}, {units} units, {csvname}\n'
@@ -396,7 +400,3 @@ class HOBOdata:
         total_minutes = abs(total_minutes)
         hours, minutes = divmod(total_minutes, 60)
         return f'{sign}{hours:02d}{minutes:02d}'
-
-# Add these variables at the end of the file
-__version__ = '3.0'
-__name__ = 'hobo_qaqc'

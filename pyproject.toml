@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "im_hobo"
+dynamic = ["version"]
+description = "QA/QC pipeline for CSV files exported from Onset HOBO data loggers, with automated file management and CSV/TOA5/Parquet output."
+readme = "README.rst"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Greg Cohn"},
+    {name = "Adam Kennedy"},
+]
+dependencies = [
+    "pandas>=1.5.0,<3",
+    "pytz>=2023.3",
+    "numpy>=1.24.0,<3",
+    "pyarrow>=14.0.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0.0"]
+gui = ["matplotlib>=3.7"]
+
+[project.urls]
+Homepage = "https://github.com/AndrewsForestLTER/im_hobo"
+Repository = "https://github.com/AndrewsForestLTER/im_hobo"
+
+[project.gui-scripts]
+im-hobo-date-summary = "MET_hobo.hobo_date_summary:main"
+
+[tool.setuptools]
+packages = ["MET_hobo"]
+
+[tool.setuptools.dynamic]
+version = {attr = "MET_hobo.__version__"}

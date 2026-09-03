@@ -1,5 +1,12 @@
-import hobo_qaqc
-import hobo_date_summary
+if __package__ in (None, ''):
+    # Run directly, e.g. `cd MET_hobo; python file_manager.py` -- MET_hobo/ is not
+    # on sys.path as a package in this case, so put its parent there instead.
+    import sys
+    from pathlib import Path as _Path
+    sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+
+from MET_hobo import hobo_qaqc
+from MET_hobo import hobo_date_summary
 from pathlib import Path
 from datetime import datetime
 import zipfile as zp
@@ -10,9 +17,6 @@ import ast
 import os
 import stat
 
-__authors__ = 'Greg Cohn'
-__version__ = '2.0'
-
 class FileHandling:
     _EXPECTED_FINAL_DIR_EXTS = {'.csv', '.log'}
     _EXPECTED_FINAL_DIR_SUBDIRS = {'logs', 'TOA5', 'parquet'}
@@ -21,9 +25,9 @@ class FileHandling:
         'toa5_os_version', 'toa5_program_name', 'toa5_program_sig',
     )
 
-    def __init__(self, config='../file_path.config'):
+    def __init__(self, config=None):
         self.start_date = datetime.now().strftime('%Y%m%d_%H%M%S')
-        self.config = self.load_config(config)
+        self.config = self.load_config(self._resolve_config_path(config))
         
         self.map_fname2dir = self.config.get('map_fname2dir', {})
 
@@ -60,6 +64,39 @@ class FileHandling:
         }
 
         atexit.register(self.write_log)
+
+    @staticmethod
+    def _resolve_config_path(config):
+        """Resolve the file_path.config to load, independent of the caller's cwd.
+
+        Checked in order:
+        1. An explicit path, if given.
+        2. The IM_HOBO_CONFIG environment variable, if set.
+        3. file_path.config in the current directory.
+        4. file_path.config in the repository root (two levels up from this file),
+           so this resolves the same way whether run as `python -m MET_hobo.file_manager`
+           from the repo root or as `python file_manager.py` from MET_hobo/.
+        """
+        if config is not None:
+            return config
+
+        env_config = os.environ.get('IM_HOBO_CONFIG')
+        if env_config:
+            return env_config
+
+        repo_root = Path(__file__).resolve().parent.parent
+        candidates = [Path.cwd() / 'file_path.config', repo_root / 'file_path.config']
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+
+        tried = '\n  '.join(str(c) for c in candidates)
+        raise FileNotFoundError(
+            f'No file_path.config found. Tried:\n  {tried}\n\n'
+            f'Set the IM_HOBO_CONFIG environment variable, pass an explicit path via '
+            f'FileHandling(config=...) or --config, or copy file_path.config.example '
+            f'to one of the paths above and edit it.'
+        )
 
     @staticmethod
     def load_config(config_path):
@@ -283,12 +320,14 @@ class FileHandling:
             self.logs.append(f"Dedupe skipped: unrecognized dedupe_mode '{dedupe_mode}'.\n")
             return
 
+        dedupe_output = self.config.get('dir_dedupe_output')
+
         start = datetime.now().strftime('%H:%M:%S')
         rows = hobo_date_summary.summarize_directories([self.final_dir])
-        log_entries = hobo_date_summary.deduplicate_and_write(rows)
+        log_entries = hobo_date_summary.deduplicate_and_write(rows, dedupe_output=dedupe_output)
         end = datetime.now().strftime('%H:%M:%S')
 
-        out_dir = hobo_date_summary.build_bulk_clean_2_path(self.final_dir)
+        out_dir = hobo_date_summary.build_dedupe_output_path(self.final_dir, configured=dedupe_output)
         truncated = sum(1 for e in log_entries if e['records_removed'] > 0)
         total_removed = sum(e['records_removed'] for e in log_entries)
         f_list = [f"{e['filename']}: {e['action']} ({e['records_removed']} removed)\n" for e in log_entries]
@@ -349,7 +388,13 @@ if __name__ == '__main__':
         '--yes', '--force', dest='force', action='store_true',
         help='Skip the confirmation prompt when clearing an unexpected final output directory'
     )
+    parser.add_argument(
+        '--config', default=None,
+        help='Path to file_path.config. Default: the IM_HOBO_CONFIG environment '
+             'variable, then file_path.config in the current directory, then in '
+             'the repository root.'
+    )
     args = parser.parse_args()
 
-    mng = FileHandling()
+    mng = FileHandling(config=args.config)
     mng.manage(force_clear=args.force)

@@ -1,46 +1,8 @@
 # File: docs/requirements.txt
+#
+# Requirements for building the Sphinx documentation (Python 3.11, Read the Docs).
+# Kept separate from the top-level requirements.txt/requirements-dev.txt since these
+# are only needed for the doc build, not for running or testing the package.
 
-##################### Why Requirements.txt ##########################################
-# When requirements are stored in the repository, their history is stored with the repository. That way the version of
-# our code keeps track with the versions needed for SPHINX and ReadTheDocs so that we won't lose the ability to make
-# documents for older versions.
-
-# version required to fix bugs
-# https://github.com/sphinx-doc/sphinx/issues/9807
-# https://blog.readthedocs.com/build-errors-docutils-0-18/
-docutils<0.18
-
-######################### venv freeze ###################################
-# virtual environment sphinx doc requirements
-# >conda create --name sphinxdoc  python=2.7
-# >conda activate sphinxdoc
-# >pip install sphinx
-# >pip install pandas
-# # check that docs build without warnings and errors
-# >make html
-# >pip freeze > requirements.txt
-
-alabaster==0.7.12
-Babel==2.9.1
-certifi==2020.6.20
-chardet==4.0.0
-colorama==0.4.4
-idna==2.10
-imagesize==1.3.0
-Jinja2==2.11.3
-MarkupSafe==1.1.1
-numpy==1.16.6
-packaging==20.9
-pandas==0.24.2
-Pygments==2.5.2
-pyparsing==2.4.7
-python-dateutil==2.8.2
-pytz==2021.3
-requests==2.26.0
-six==1.16.0
-snowballstemmer==2.2.0
-Sphinx==1.8.6
-sphinxcontrib-websupport==1.1.2
-typing==3.10.0.0
-urllib3==1.26.7
-wincertstore==0.2
+sphinx>=7,<8
+alabaster<0.8

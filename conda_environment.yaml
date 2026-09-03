@@ -4,9 +4,7 @@ channels:
   - defaults
 dependencies:
   - python=3.11
-  - pandas
+  - pandas<3
   - pytz
-  - numpy
-  - pip
-  - pip:
-    - pathlib
+  - numpy<3
+  - pyarrow

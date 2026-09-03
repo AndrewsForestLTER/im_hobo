@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "im_hobo"
+abstract: >-
+  Python pipeline that performs QA/QC on CSV files exported from Onset HOBO
+  data loggers, producing timezone-corrected, unit-converted, timestep-
+  synchronized output files (CSV, TOA5, and Parquet) ready for import into
+  analysis workflows such as the GCE Data Toolbox.
+authors:
+  - family-names: Cohn
+    given-names: Greg
+    affiliation: "H.J. Andrews Experimental Forest LTER, Oregon State University"
+  - family-names: Kennedy
+    given-names: Adam
+    affiliation: "H.J. Andrews Experimental Forest LTER, Oregon State University"
+    orcid: "https://orcid.org/0000-0002-0491-8412"
+version: 1.0.0
+date-released: "2026-09-02"
+repository-code: "https://github.com/AndrewsForestLTER/im_hobo"
+license: MIT
+keywords:
+  - HOBO data loggers
+  - H.J. Andrews Experimental Forest
+  - LTER
+  - Long Term Ecological Research
+  - environmental sensor data
+  - QA/QC
+  - climate data

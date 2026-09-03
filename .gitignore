@@ -4,5 +4,18 @@
 doc/build/
 doc/source/_static/
 doc/source/_templates/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
 
 venv/
+.venv/
+
+# Local machine-specific config -- copy file_path.config.example instead
+file_path.config
+
+# Claude Code session working files -- never publish
+CLAUDE.md
+CHANGELOG_CLAUDE.md
