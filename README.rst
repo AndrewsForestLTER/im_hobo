@@ -288,8 +288,15 @@ From the repository root:
 Use **Browse...** to select a folder, **Scan** to load the file summaries, and **Save Summary CSV** to export the
 results.
 
-Greg Cohn - Northern Arizona University - ORCID: 0000-0002-3427-6932 - Scopus ID: 54942473800
-Adam Kennedy - H.J. Andrews Experimental Forest LTER, Oregon State University - ORCID: 0000-0002-0491-8412 - Scopus ID: 57199248032
+Authors
+-------
+
+Greg Cohn - H.J. Andrews Experimental Forest LTER, Oregon State University
+(work performed while at OSU; now at Northern Arizona University) -
+ORCID: 0000-0002-3427-6932 - SCOPUS ID: 54942473800
+
+Adam Kennedy - H.J. Andrews Experimental Forest LTER, Oregon State University -
+ORCID: 0000-0002-0491-8412 - SCUPOS ID: 57199248032
 
 Citation
 ========
