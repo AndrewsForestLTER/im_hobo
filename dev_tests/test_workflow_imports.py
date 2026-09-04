@@ -121,13 +121,33 @@ def test_config_resolution_falls_back_to_repo_root(tmp_path, monkeypatch):
     """With no explicit path, no env var, and no file_path.config in cwd, falls
     back to the repo root -- this is what makes `cd MET_hobo; python
     file_manager.py` keep finding it. Only checks the resolved path, doesn't
-    load or touch the real file."""
+    load or touch the real file.
+
+    Uses a fake repo root (module `__file__` monkeypatched, same technique as
+    test_config_resolution_raises_clear_error_when_nothing_found below) with a
+    real temp file_path.config in it, rather than asserting against the actual
+    REPO_ROOT. Asserting against REPO_ROOT only passes where a real
+    file_path.config happens to already exist there -- true on a dev machine
+    with one set up, false on a clean CI checkout, which can't verify the
+    fallback *resolves* to repo-root without a file there to find.
+    """
+    import MET_hobo.file_manager as file_manager_module
     from MET_hobo.file_manager import FileHandling
+
     monkeypatch.delenv('IM_HOBO_CONFIG', raising=False)
-    monkeypatch.chdir(tmp_path)  # empty dir -- no file_path.config here
+    cwd_dir = tmp_path / 'cwd'
+    cwd_dir.mkdir()
+    monkeypatch.chdir(cwd_dir)  # empty dir -- no file_path.config here
+
+    fake_repo_root = tmp_path / 'fake_repo'
+    fake_config = fake_repo_root / 'file_path.config'
+    fake_config.parent.mkdir(parents=True)
+    fake_config.write_text('dir_source_files = "x"\n')
+    fake_module_file = fake_repo_root / 'MET_hobo' / 'file_manager.py'
+    monkeypatch.setattr(file_manager_module, '__file__', str(fake_module_file))
 
     resolved = FileHandling._resolve_config_path(None)
-    assert Path(resolved) == REPO_ROOT / 'file_path.config'
+    assert Path(resolved) == fake_config
 
 
 def test_config_resolution_raises_clear_error_when_nothing_found(tmp_path, monkeypatch):
