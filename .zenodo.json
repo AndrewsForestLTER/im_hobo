@@ -3,16 +3,17 @@
   "version": "1.0.0",
   "upload_type": "software",
   "creators": [
-    {
-      "name": "Cohn, Greg",
-      "affiliation": "H.J. Andrews Experimental Forest LTER, Oregon State University"
-    },
-    {
-      "name": "Kennedy, Adam",
-      "affiliation": "H.J. Andrews Experimental Forest LTER, Oregon State University",
-      "orcid": "0000-0002-0491-8412"
-    }
-  ],
+  {
+    "name": "Cohn, Greg",
+    "affiliation": "Northern Arizona University",
+    "orcid": "0000-0002-3427-6932"
+  },
+  {
+    "name": "Kennedy, Adam",
+    "affiliation": "H.J. Andrews Experimental Forest LTER, Oregon State University",
+    "orcid": "0000-0002-0491-8412"
+  }
+],
   "description": "<p>im_hobo performs QA/QC on CSV files exported from Onset HOBO data loggers (via HOBOware), producing timezone-corrected, unit-converted, timestep-synchronized output files (CSV, TOA5, and Parquet) with automated file management, ready for import into analysis workflows such as the GCE Data Toolbox.</p><p>This material is based upon work supported by the H.J. Andrews Experimental Forest and Long Term Ecological Research (LTER) program under the NSF grant LTER8 DEB-2025755.</p>",
   "license": "MIT",
   "keywords": [

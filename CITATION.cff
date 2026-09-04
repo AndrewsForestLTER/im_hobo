@@ -11,12 +11,13 @@ authors:
   - family-names: Cohn
     given-names: Greg
     affiliation: "H.J. Andrews Experimental Forest LTER, Oregon State University"
+    orcid: "https://orcid.org/0000-0002-3427-6932"
   - family-names: Kennedy
     given-names: Adam
     affiliation: "H.J. Andrews Experimental Forest LTER, Oregon State University"
     orcid: "https://orcid.org/0000-0002-0491-8412"
 version: 1.0.0
-date-released: "2026-09-02"
+date-released: "2026-09-03"
 repository-code: "https://github.com/AndrewsForestLTER/im_hobo"
 license: MIT
 keywords:
