@@ -2,6 +2,73 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.1.0] - 2026-09-04
+
+### Added
+- Settings dialog (`MET_hobo/settings_dialog.py`'s `SettingsDialog`) in the HOBO CSV
+  Date Summary GUI (`hobo_date_summary.py`), opened from the new "Pipeline" menu's
+  "Settings..." item. Reads and writes `file_path.config` in exactly the format
+  `FileHandling.load_config`/`_resolve_config_path` expect -- one row per config key
+  (the three required directories, `time_step`, `dedupe_mode`, `dir_dedupe_output`,
+  `map_fname2dir`, and all seven `toa5_*` keys), each with a short "(?)" tooltip
+  pulled from the README/`doc/source/config_file.rst`. Saves to whichever path the
+  config was loaded from (explicit > `IM_HOBO_CONFIG` > cwd > repo root, matching
+  `FileHandling._resolve_config_path`), or to the repository root if no config
+  existed yet -- seeding the dialog from `file_path.config.example` in that case.
+  Directory fields get a Browse (`askdirectory`) button. Save warns (without
+  blocking) about directories that don't exist, and offers to create the ones the
+  pipeline writes to.
+- Run button, embedded in the Settings dialog and enabled after a successful Save.
+  Runs `FileHandling(config=...).manage()` in a background thread so the GUI stays
+  responsive; a scrolled log pane shows the pipeline's stdout/stderr live via a
+  thread-safe `after()`-based redirector, and a completion summary (files processed,
+  or the exception and traceback on failure) is appended when the thread finishes.
+  Run is disabled while a run is in progress and re-enabled on completion or error.
+- `FileHandling.manage()` gained an optional `confirm_cb` parameter (default `None`,
+  fully backward compatible) so callers can supply a callable(prompt) -> bool in
+  place of the two places `file_manager.py` used a blocking console `input()`
+  (`dedupe_mode = "prompt"`, and clearing a final storage directory that holds
+  unexpected content). The Settings dialog's Run button passes a thread-safe bridge
+  that shows a Tk Yes/No `messagebox` instead -- a console prompt from a background
+  thread would otherwise hang the GUI forever with no visible cause.
+- Every GUI-triggered run writes its full log to a timestamped file, reusing
+  `FileHandling.write_log`'s own `logs/` subdirectory of the final storage directory
+  (named `gui_run_<timestamp>.log`, distinct from `write_log`'s own
+  `hobo_qaqc_<timestamp>.log`) rather than inventing a new location. The saved
+  path is shown in the log pane and status bar after each run.
+- Help menu item, opening the project's Read the Docs page
+  (<https://im-hobo.readthedocs.io>) in the default browser via `webbrowser.open()`,
+  falling back to a local `doc/build/html/index.html` or `README.rst` if that
+  fails.
+- `dev_tests/test_settings.py`: config read/write round-trip (including a
+  Windows-style backslash path), the example-seeding fallback when no config
+  exists yet, `run_pipeline`'s `FileHandling`/`confirm_cb` wiring (verified against
+  a fake `FileHandling`, never touching real directories), and the
+  `gui_run_<timestamp>.log` naming/location logic.
+
+### Fixed
+- **Bug against the 1.0.0 dedupe feature, unrelated to the Settings/Run/Help work
+  above.** `hobo_date_summary.deduplicate_and_write` only knew about `.csv` files:
+  a file that survived dedupe (copied unchanged or truncated) left its
+  `TOA5/<stem>.dat` and `parquet/<stem>.parquet` siblings (written by
+  `hobo_qaqc.py` alongside it in bulk mode) behind in the original
+  `dir_final_storage`, never copied into the dedupe output directory. Confirmed
+  against real output: `bulk_clean/TOA5` and `bulk_clean/parquet` existed and were
+  populated, but `bulk_clean_dedup` had neither subdirectory at all. Fixed with a
+  new `_copy_sibling_outputs` helper, called for every CSV written to the dedupe
+  output directory (both the "copied unchanged" and "truncated" branches, and the
+  error-row copy branch), name-linking each CSV to its siblings by stem the same
+  way `file_manager.qaqc_csv` writes them
+  (`export_to_toa5`/`export_to_parquet`). A CSV missing one or both siblings
+  (e.g. `final_subdirs=True` mode, where TOA5/Parquet are never written) is
+  skipped silently rather than erroring. `file_manager._run_dedupe` and
+  `hobo_date_summary`'s own manual/GUI dedupe button both call
+  `deduplicate_and_write` directly with no separate copying logic of their own, so
+  this one fix covers both entry points. Covered by new
+  `dev_tests/test_dedupe.py`, using a synthetic `dir_final_storage` with paired
+  CSV/TOA5/parquet files across both dedupe branches, plus cases with only one
+  sibling present and with neither present.
+
 ## [1.0.0] - 2026-09-02
 
 First release published to GitHub (migrated from Bitbucket) and archived on Zenodo.

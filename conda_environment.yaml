@@ -8,3 +8,4 @@ dependencies:
   - pytz
   - numpy<3
   - pyarrow
+  - matplotlib>=3.7
