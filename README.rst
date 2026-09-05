@@ -193,6 +193,13 @@ By default, the dedupe output directory is a sibling of ``dir_final_storage`` na
 ``.../bulk_clean_dedup``. Set the optional ``dir_dedupe_output`` key in ``file_path.config`` to send
 it somewhere else instead. See the commented-out example in ``file_path.config.example``.
 
+Every CSV written to the dedupe output directory (copied unchanged or truncated) carries its
+``TOA5/<name>.dat`` and ``parquet/<name>.parquet`` siblings along with it, into matching ``TOA5/``
+and ``parquet/`` subdirectories of the dedupe output directory — so the dedupe output is a complete,
+ready-to-process set in all three formats, not just CSV. A CSV missing one or both siblings (e.g.
+when routing output to per-project site directories, where TOA5/Parquet aren't written) is skipped
+silently for that format rather than erroring.
+
 Accessing the Methods
 ---------------------
 From Python
@@ -228,7 +235,7 @@ TOA5 and Parquet Output
 ========================
 In addition to the standard GCE-formatted CSV output, every processed file is also written as a
 Campbell Scientific TOA5 file and an Apache Parquet file. This happens automatically for every run in
-bulk mode (``final_subdirs=False``, the default) — there is no separate flag to turn it on. It is not
+bulk mode (``final_subdirs=False``, the default) - there is no separate flag to turn it on. It is not
 yet supported when routing output to per-project site directories (``final_subdirs=True``); in that
 mode, only the CSV output is written.
 
@@ -286,6 +293,29 @@ From the repository root:
 Use **Browse...** to select a folder, **Scan** to load the file summaries, and **Save Summary CSV** to export the
 results.
 
+Settings Dialog and Pipeline Run (GUI)
+---------------------------------------
+The same GUI's **Pipeline > Settings...** menu item opens a dialog for editing ``file_path.config``
+without a text editor, and for running the full QAQC pipeline from there directly.
+
+* One row per config key (the three required directories, ``time_step``, ``dedupe_mode``,
+  ``dir_dedupe_output``, ``map_fname2dir``, and the ``toa5_*`` fields), each with a **Browse...**
+  button for directory fields and a short "(?)" tooltip explaining what it does.
+* **Save** writes ``file_path.config`` to whichever path it would otherwise be found at (see
+  the resolution order above), or to the repository root if none existed yet — seeding the
+  dialog's fields from ``file_path.config.example`` in that case. Directories that don't exist
+  yet trigger a warning (not a hard stop), and output directories can be created on the spot.
+* **Run** (enabled once Save succeeds) runs ``FileHandling(config=...).manage()`` in a background
+  thread, so the dialog stays responsive. A scrolled log pane shows progress live, followed by a
+  completion summary or the failing exception's traceback. If ``dedupe_mode`` is ``"prompt"``,
+  the console y/N prompt is shown as a Yes/No dialog instead of blocking silently.
+* Every run's full log is also saved to ``<dir_final_storage>/logs/gui_run_<timestamp>.log`` —
+  the same ``logs/`` directory ``FileHandling.write_log`` already uses, just with a
+  GUI-specific filename — and that path is shown in the log pane once the run finishes.
+
+The **Help** menu opens this project's documentation (https://im-hobo.readthedocs.io) in your
+default browser.
+
 Authors
 -------
 
@@ -299,9 +329,9 @@ ORCID: 0000-0002-0491-8412 - SCOPUS ID: 57199248032
 Citation
 ========
 If you use this software, please cite it. Citation metadata is maintained in
-`CITATION.cff <CITATION.cff>`_ — GitHub renders a "Cite this repository" button from that file, or you can
+`CITATION.cff <CITATION.cff>`_ - GitHub renders a "Cite this repository" button from that file, or you can
 generate a citation in your preferred format at `cff-init <https://citation-file-format.github.io/cff-initializer-javascript/>`_.
 
 License
 =======
-This project is licensed under the MIT License — see `LICENSE <LICENSE>`_ for details.
+This project is licensed under the MIT License - see `LICENSE <LICENSE>`_ for details.

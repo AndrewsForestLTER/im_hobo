@@ -38,6 +38,7 @@ class FileHandling:
         except KeyError as e:
             raise SystemExit(f'Error: Missing required configuration: {e} in file_path.config')
         self.time_step = self.config.get('time_step')
+        self._confirm_cb = None
 
         for d in [self.wdir, self.final_dir, self.src_dir]:
             if self._is_spec_char_in_path(d):
@@ -114,6 +115,19 @@ class FileHandling:
                         # If it's not a Python literal, treat it as a string
                         config[key] = value.strip('"').strip("'")
         return config
+
+    def _confirm(self, prompt):
+        """Ask a yes/no question.
+
+        Uses self._confirm_cb if one was passed to manage() -- e.g. a GUI's
+        thread-safe bridge to a Tk messagebox -- otherwise falls back to a
+        console y/N prompt. Without this indirection, a GUI run landing on a
+        console input() call would hang its background thread forever.
+        """
+        if self._confirm_cb is not None:
+            return bool(self._confirm_cb(prompt))
+        answer = input(f'{prompt} [y/N]: ').strip().lower()
+        return answer == 'y'
 
     @staticmethod
     def _is_spec_char_in_path(path):
@@ -216,12 +230,12 @@ class FileHandling:
         unexpected = self._unexpected_final_dir_contents()
         if unexpected and not force:
             listing = '\n'.join(f'  {p}' for p in sorted(unexpected, key=str))
-            answer = input(
+            proceed = self._confirm(
                 f'The final output directory contains unexpected content that will be '
                 f'permanently deleted:\n{listing}\n\n'
-                f'Proceed with clearing {self.final_dir}? [y/N]: '
-            ).strip().lower()
-            if answer != 'y':
+                f'Proceed with clearing {self.final_dir}?'
+            )
+            if not proceed:
                 self.logs.append(
                     f'WARNING: Declined to clear final output directory {self.final_dir}; '
                     f'unexpected content present: {[str(p) for p in unexpected]}. '
@@ -312,8 +326,7 @@ class FileHandling:
             return
 
         if dedupe_mode == 'prompt':
-            answer = input(f'Run dedupe on {self.final_dir}? [y/N]: ').strip().lower()
-            if answer != 'y':
+            if not self._confirm(f'Run dedupe on {self.final_dir}?'):
                 self.logs.append('Dedupe skipped: user declined at prompt.\n')
                 return
         elif dedupe_mode != 'auto':
@@ -335,7 +348,17 @@ class FileHandling:
         self.logs.extend(self._log_chg('dedupe', start, end, self.final_dir, out_dir, len(log_entries), truncated, f_list))
         self.logs.append(f'--------- {total_removed} duplicate record(s) removed across all files\n')
 
-    def manage(self, time_step=None, units='SI', tz=-8, final_subdirs=False, force_clear=False):
+    def manage(self, time_step=None, units='SI', tz=-8, final_subdirs=False, force_clear=False,
+               confirm_cb=None):
+        """Run the full QAQC pipeline.
+
+        confirm_cb, if given, is a callable(prompt: str) -> bool used in place of a
+        console y/N input() for any confirmation the pipeline needs (clearing a final
+        output directory with unexpected content, dedupe_mode="prompt"). Pass a
+        thread-safe bridge to a GUI dialog here when calling manage() off the main
+        thread -- see _confirm().
+        """
+        self._confirm_cb = confirm_cb
         self.set_log_header()
         self.copy_src_to_wdir()
         self.index_files()

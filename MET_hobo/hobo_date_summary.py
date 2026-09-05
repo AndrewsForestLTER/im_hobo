@@ -14,9 +14,6 @@ Deduplication rule:
     authoritative. All files (modified or not) are written to the dedupe
     output directory so it's always a complete, ready-to-process set.
 
-Requirements:
-    pip install matplotlib
-
 Usage:
     python hobo_date_summary.py
 """
@@ -40,16 +37,12 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-try:
-    import matplotlib
-    matplotlib.use('TkAgg')
-    import matplotlib.dates as mdates
-    import matplotlib.patches as mpatches
-    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-    from matplotlib.figure import Figure
-    MATPLOTLIB_AVAILABLE = True
-except ImportError:
-    MATPLOTLIB_AVAILABLE = False
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.dates as mdates
+import matplotlib.patches as mpatches
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.figure import Figure
 
 
 # ── Date parsing ──────────────────────────────────────────────────────────────
@@ -316,6 +309,32 @@ def build_dedupe_output_path(source_dir, configured=None):
     return source_dir.parent / (source_dir.name + '_dedup')
 
 
+# Subdirectory name -> file extension for the sibling outputs hobo_qaqc.HOBOdata
+# writes alongside each CSV in bulk mode (file_manager.qaqc_csv,
+# export_to_toa5/export_to_parquet): dir_final_storage/TOA5/<stem>.dat and
+# dir_final_storage/parquet/<stem>.parquet, name-linked to the CSV by its stem.
+_SIBLING_OUTPUT_EXTS = {'TOA5': '.dat', 'parquet': '.parquet'}
+
+
+def _copy_sibling_outputs(source_dir, out_dir, csv_filename):
+    """Copy a CSV's TOA5/<stem>.dat and parquet/<stem>.parquet siblings (if any)
+    from source_dir into the matching subdirectories of out_dir.
+
+    Silently does nothing for a subdirectory whose sibling file doesn't exist --
+    e.g. final_subdirs=True mode, where TOA5/parquet are never written, or a CSV
+    that predates TOA5/Parquet output being added.
+    """
+    stem = Path(csv_filename).stem
+    source_dir = Path(source_dir)
+    for subdir, ext in _SIBLING_OUTPUT_EXTS.items():
+        src = source_dir / subdir / f'{stem}{ext}'
+        if not src.is_file():
+            continue
+        dest_dir = out_dir / subdir
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest_dir / src.name)
+
+
 def deduplicate_and_write(rows, progress_cb=None, dedupe_output=None):
     """Write all files to the dedupe output directory; remove overlapping
     timestamps from earlier files where a later file for the same sitecode is
@@ -331,6 +350,10 @@ def deduplicate_and_write(rows, progress_cb=None, dedupe_output=None):
         2. For each file, collect every timestamp that appears in any later file
            with the same sitecode — those timestamps are removed from this file.
         3. All files (modified or not) are written to the dedupe output directory.
+           Each CSV's TOA5/<stem>.dat and parquet/<stem>.parquet siblings (written
+           by hobo_qaqc.py alongside it, if any) are carried over into matching
+           TOA5/ and parquet/ subdirectories of the dedupe output directory --
+           see _copy_sibling_outputs.
         4. Error files are copied as-is with a note in the log.
         5. A timestamped dedup_log CSV is written to a logs/ subfolder of each
            dedupe output folder (kept out of the *.csv glob used to scan for data).
@@ -422,6 +445,8 @@ def deduplicate_and_write(rows, progress_cb=None, dedupe_output=None):
         key = (row['source_dir'], row['filename'])
         to_remove = remove_map.get(key, set())
 
+        _copy_sibling_outputs(row['source_dir'], out_dir, row['filename'])
+
         if not to_remove:
             # No overlap — copy file as-is
             shutil.copy2(src_path, out_path)
@@ -493,6 +518,7 @@ def deduplicate_and_write(rows, progress_cb=None, dedupe_output=None):
 
         if src_path and src_path.exists():
             shutil.copy2(src_path, out_dir / row['filename'])
+            _copy_sibling_outputs(row['source_dir'], out_dir, row['filename'])
             action = 'copied with errors — review manually'
         else:
             action = 'skipped — source file not accessible'
@@ -632,7 +658,31 @@ class CsvDateSummaryApp(tk.Tk):
         self.rows = []
         self._chart_canvas = None
 
+        self._build_menu()
         self._build_ui()
+
+    # ── Menu ───────────────────────────────────────────────────────────────────
+
+    def _build_menu(self):
+        menubar = tk.Menu(self)
+
+        pipeline_menu = tk.Menu(menubar, tearoff=False)
+        pipeline_menu.add_command(label='Settings...', command=self.open_settings_dialog)
+        menubar.add_cascade(label='Pipeline', menu=pipeline_menu)
+
+        help_menu = tk.Menu(menubar, tearoff=False)
+        help_menu.add_command(label='Help', command=self.open_help)
+        menubar.add_cascade(label='Help', menu=help_menu)
+
+        self.config(menu=menubar)
+
+    def open_settings_dialog(self):
+        from MET_hobo.settings_dialog import SettingsDialog
+        SettingsDialog(self)
+
+    def open_help(self):
+        from MET_hobo.settings_dialog import open_help
+        open_help()
 
     # ── UI construction ───────────────────────────────────────────────────────
 
@@ -674,11 +724,10 @@ class CsvDateSummaryApp(tk.Tk):
         btn_save.pack(side='left', padx=(8, 0))
         self._action_buttons.append(btn_save)
 
-        if MATPLOTLIB_AVAILABLE:
-            btn_chart = ttk.Button(action_frame, text='Save Chart PNG',
-                                   command=self.save_chart)
-            btn_chart.pack(side='left', padx=(8, 0))
-            self._action_buttons.append(btn_chart)
+        btn_chart = ttk.Button(action_frame, text='Save Chart PNG',
+                               command=self.save_chart)
+        btn_chart.pack(side='left', padx=(8, 0))
+        self._action_buttons.append(btn_chart)
 
         btn_dedup = ttk.Button(action_frame, text='Deduplicate',
                                command=self.run_deduplication)
@@ -710,15 +759,9 @@ class CsvDateSummaryApp(tk.Tk):
 
         self.chart_tab = ttk.Frame(self.notebook)
         self.notebook.add(self.chart_tab, text='Overlap Chart')
-        if MATPLOTLIB_AVAILABLE:
-            ttk.Label(self.chart_tab,
-                      text='Run a scan to generate the overlap chart.',
-                      padding=20).pack()
-        else:
-            ttk.Label(self.chart_tab,
-                      text='matplotlib is not installed.\n'
-                           'Run:  pip install matplotlib',
-                      padding=20, foreground='red').pack()
+        ttk.Label(self.chart_tab,
+                  text='Run a scan to generate the overlap chart.',
+                  padding=20).pack()
 
         ttk.Label(self, textvariable=self.status_var,
                   padding=(12, 4)).pack(fill='x')
@@ -828,9 +871,7 @@ class CsvDateSummaryApp(tk.Tk):
         self.rows = rows
         self._show_progress(False)
         self._refresh_table()
-
-        if MATPLOTLIB_AVAILABLE:
-            self._refresh_chart()
+        self._refresh_chart()
 
         ok_count = sum(1 for r in self.rows if r['status'] == 'OK')
         _, overlap_intervals = compute_overlaps(self.rows)
@@ -979,9 +1020,7 @@ class CsvDateSummaryApp(tk.Tk):
         self.rows = rows
         self._show_progress(False)
         self._refresh_table()
-
-        if MATPLOTLIB_AVAILABLE:
-            self._refresh_chart()
+        self._refresh_chart()
 
         ok_count = sum(1 for r in self.rows if r['status'] == 'OK')
         _, remaining_overlaps = compute_overlaps(self.rows)

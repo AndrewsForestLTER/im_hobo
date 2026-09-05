@@ -14,6 +14,7 @@ Contents:
 
    includeREADME
    config_file
+   gui
    modules
 
 ******************
