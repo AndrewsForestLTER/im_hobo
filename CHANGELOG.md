@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Added
+- `doi:` (Zenodo concept DOI `10.5281/zenodo.22294811`) in `CITATION.cff`, so
+  GitHub's "Cite this repository" citation includes a DOI that always resolves to
+  the latest release.
+- `dev_tests/test_citation_metadata.py`: fails CI if `CITATION.cff`, `.zenodo.json`
+  and `MET_hobo.__version__` disagree on version, title, license or authors
+  (names, ORCIDs, affiliations), or if the CFF/README DOI is not the concept DOI.
+  Adds `pyyaml` to the `test` extra.
+
 ## [1.1.0] - 2026-09-04
 
 ### Added
